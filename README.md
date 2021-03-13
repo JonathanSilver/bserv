@@ -54,15 +54,14 @@ Run in `shell`:
 
 ## Performance
 
-This test is performed by Jmeter.
+This test is performed by Jmeter. The unit for throughput is Transaction per second.
 
-The unit for throughput is Transaction per second.
+|URL|bserv|
+|:-:|:-:|
+|`/login`|139.55|
+|`/find/<user>`|958.77|
 
-
-|URL|bserv|Java Spring Boot|
-|:-:|:-:|:-:|
-|`/login`|139.55||
-|`/find/<user>`|958.77||
+For `/login`, we must slow down the attacker's speed. In Java, plain password is stored, which results in a higher performance.
 
 
 ### Computer Hardware:

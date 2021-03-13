@@ -1,6 +1,0 @@
-# Build
-
-```
-cmake ..
-cmake --build .
-```

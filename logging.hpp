@@ -37,6 +37,10 @@ void init_logging() {
 #define lgerror BOOST_LOG_TRIVIAL(error)
 #define lgfatal BOOST_LOG_TRIVIAL(fatal)
 
+void fail(const boost::system::error_code& ec, const char* what) {
+    lgerror << what << ": " << ec.message() << std::endl;
+}
+
 }  // bserv
 
 #endif  // _LOGGING_HPP

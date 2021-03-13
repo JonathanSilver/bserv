@@ -22,13 +22,12 @@
 #include <thread>
 #include <chrono>
 
-#include <pqxx/pqxx>
-
 #include "config.hpp"
 #include "logging.hpp"
 #include "utils.hpp"
 #include "routing.hpp"
 #include "database.hpp"
+#include "client.hpp"
 
 namespace bserv {
 
@@ -37,10 +36,6 @@ namespace http = beast::http;
 namespace asio = boost::asio;
 namespace json = boost::json;
 using asio::ip::tcp;
-
-void fail(const beast::error_code& ec, const char* what) {
-    lgerror << what << ": " << ec.message() << std::endl;
-}
 
 // this function produces an HTTP response for the given
 // request. The type of the response object depends on the
@@ -328,6 +323,9 @@ int main(int argc, char* argv[]) {
     init_logging();
     show_config();
 
+    // io_context for all I/O
+    asio::io_context ioc{NUM_THREADS};
+
     // some initializations must be done after parsing the arguments
     // e.g. database connection
     try {
@@ -339,8 +337,7 @@ int main(int argc, char* argv[]) {
     }
     session_mgr = std::make_shared<memory_session>();
 
-    // io_context for all I/O
-    asio::io_context ioc{NUM_THREADS};
+    client_ptr = std::make_shared<client>(ioc);
 
     // creates and launches a listening port
     std::make_shared<listener>(

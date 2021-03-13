@@ -209,4 +209,22 @@ boost::json::object user_logout(
     };
 }
 
+boost::json::object send_request() {
+    // post for response:
+    // auto res = bserv::request::post(
+    //     "localhost", "8081", "/test", {{"msg", "request"}}
+    // ).get();
+    // return {{"response", boost::json::parse(res.body())}};
+    // -------------------------------------------------------
+    // - if it takes longer than 30 seconds (by default) to
+    // - get the response, this will raise a read timeout
+    // -------------------------------------------------------
+    // post for json response (json value, rather than json
+    // object, is returned):
+    auto obj = bserv::request::post_for_object(
+        "localhost", "8081", "/test", {{"msg", "request"}}
+    ).get();
+    return {{"response", obj}};
+}
+
 #endif  // _HANDLERS_HPP

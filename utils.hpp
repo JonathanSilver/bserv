@@ -8,6 +8,8 @@
 #include <map>
 #include <random>
 #include <mutex>
+#include <sstream>
+#include <iomanip>
 
 #include <cryptopp/cryptlib.h>
 #include <cryptopp/pwdbased.h>
@@ -40,6 +42,11 @@ auto get_rd_value() {
 const std::string chars = "abcdefghijklmnopqrstuvwxyz"
                           "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                           "1234567890";
+
+
+const std::string url_safe_characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                                        "abcdefghijklmnopqrstuvwxyz"
+                                        "0123456789-._~";
 
 }  // internal
 
@@ -130,6 +137,19 @@ std::string decode_url(const std::string& s) {
         else r.push_back(s[i]);
     }
     return r;
+}
+
+std::string encode_url(const std::string& s) {
+    std::ostringstream oss;
+    for (auto& c : s) {
+        if (internal::url_safe_characters.find(c) != std::string::npos) {
+            oss << c;
+        } else {
+            oss << '%' << std::setfill('0') << std::setw(2) <<
+                std::uppercase << std::hex << (0xff & c);
+        }
+    }
+    return oss.str();
 }
 
 // this function parses param list in the form of k1=v1&k2=v2...,

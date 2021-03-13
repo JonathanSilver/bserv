@@ -24,7 +24,8 @@ bserv::router routes{
         bserv::placeholders::session),
     bserv::make_path("/find/<str>", &find_user,
         bserv::placeholders::transaction,
-        bserv::placeholders::_1)
+        bserv::placeholders::_1),
+    bserv::make_path("/send", &send_request)
 };
 
 }  // bserv

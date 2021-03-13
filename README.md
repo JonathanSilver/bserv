@@ -41,14 +41,28 @@ Write the handlers in [handlers.hpp](handlers.hpp)
 
 ## Build
 
-Please refer to [this](build/README.md).
+In the `shell`:
+
+- Create a directory `build`, and enter it:
+  ```
+  mkdir build
+  cd build
+  ```
+- Run:
+  ```
+  cmake ..
+  ```
+- Build:
+  ```
+  cmake --build .
+  ```
 
 
 ## Running
 
-Run in `shell`:
+In `build`, run in `shell`:
 ```
-./build/bserv
+./bserv
 ```
 
 
@@ -61,7 +75,7 @@ This test is performed by Jmeter. The unit for throughput is Transaction per sec
 |`/login`|139.55|
 |`/find/<user>`|958.77|
 
-For `/login`, we must slow down the attacker's speed. In Java, plain password is stored, which results in a higher performance.
+For `/login`, we intentionally slow down the attacker's speed.
 
 
 ### Computer Hardware:

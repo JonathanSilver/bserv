@@ -7,6 +7,9 @@
  * 
  */
 
+#ifndef _SERVER_HPP
+#define _SERVER_HPP
+
 #include <boost/beast.hpp>
 #include <boost/asio.hpp>
 #include <boost/optional.hpp>
@@ -25,8 +28,9 @@
 #include "config.hpp"
 #include "logging.hpp"
 #include "utils.hpp"
-#include "routing.hpp"
+#include "router.hpp"
 #include "database.hpp"
+#include "session.hpp"
 #include "client.hpp"
 
 namespace bserv {
@@ -45,7 +49,7 @@ using asio::ip::tcp;
 template <class Body, class Allocator, class Send>
 void handle_request(
     http::request<Body, http::basic_fields<Allocator>>&& req,
-    Send&& send) {
+    Send&& send, router& routes) {
     
     const auto bad_request = [&req](beast::string_view why) {
         http::response<http::string_body> res{
@@ -118,12 +122,12 @@ void handle_request(
     send(std::move(res));
 }
 
-// std::string get_address(const tcp::socket& socket) {
-//     tcp::endpoint end_point = socket.remote_endpoint();
-//     std::string addr = end_point.address().to_string()
-//         + ':' + std::to_string(end_point.port());
-//     return addr;
-// }
+std::string get_address(const tcp::socket& socket) {
+    tcp::endpoint end_point = socket.remote_endpoint();
+    std::string addr = end_point.address().to_string()
+        + ':' + std::to_string(end_point.port());
+    return addr;
+}
 
 // handles an HTTP server connection
 class http_session
@@ -162,7 +166,8 @@ private:
     boost::optional<
         http::request_parser<http::string_body>> parser_;
     std::shared_ptr<void> res_;
-    // const std::string address_;
+    router& routes_;
+    const std::string address_;
     void do_read() {
         // constructs a new parser for each message
         parser_.emplace();
@@ -170,7 +175,7 @@ private:
         // of the body in bytes to prevent abuse.
         parser_->body_limit(PAYLOAD_LIMIT);
         // sets the timeout.
-        stream_.expires_after(std::chrono::seconds(30));
+        stream_.expires_after(std::chrono::seconds(EXPIRY_TIME));
         // reads a request using the parser-oriented interface
         http::async_read(
             stream_, buffer_, *parser_,
@@ -182,7 +187,7 @@ private:
         beast::error_code ec,
         std::size_t bytes_transferred) {
         boost::ignore_unused(bytes_transferred);
-        // lgtrace << "received " << bytes_transferred << " byte(s) from: " << address_;
+        lgtrace << "received " << bytes_transferred << " byte(s) from: " << address_;
         // this means they closed the connection
         if (ec == http::error::end_of_stream) {
             do_close();
@@ -193,7 +198,7 @@ private:
             return;
         }
         // handles the request and sends the response
-        handle_request(parser_->release(), lambda_);
+        handle_request(parser_->release(), lambda_, routes_);
         // at this point the parser can be reset
     }
     void on_write(
@@ -206,7 +211,7 @@ private:
             fail(ec, "http_session async_write");
             return;
         }
-        // lgtrace << "sent " << bytes_transferred << " byte(s) to: " << address_;
+        lgtrace << "sent " << bytes_transferred << " byte(s) to: " << address_;
         if (close) {
             // this means we should close the connection, usually because
             // the response indicated the "Connection: close" semantic.
@@ -221,16 +226,16 @@ private:
         beast::error_code ec;
         stream_.socket().shutdown(tcp::socket::shutdown_send, ec);
         // at this point the connection is closed gracefully
-        // lgtrace << "socket connection closed: " << address_;
+        lgtrace << "socket connection closed: " << address_;
     }
 public:
-    http_session(tcp::socket&& socket)
-        : lambda_{*this}, stream_{std::move(socket)} /*,
-        address_{get_address(stream_.socket())} */ {
-        // lgtrace << "http session opened: " << address_;
+    http_session(tcp::socket&& socket, router& routes)
+        : lambda_{*this}, stream_{std::move(socket)}, routes_{routes},
+        address_{get_address(stream_.socket())} {
+        lgtrace << "http session opened: " << address_;
     }
     ~http_session() {
-        // lgtrace << "http session closed: " << address_;
+        lgtrace << "http session closed: " << address_;
     }
     void run() {
         asio::dispatch(
@@ -247,6 +252,7 @@ class listener
 private:
     asio::io_context& ioc_;
     tcp::acceptor acceptor_;
+    router& routes_;
     void do_accept() {
         acceptor_.async_accept(
             asio::make_strand(ioc_),
@@ -258,39 +264,45 @@ private:
         if (ec) {
             fail(ec, "listener::acceptor async_accept");
         } else {
-            // lgtrace << "listener accepts: " << get_address(socket);
+            lgtrace << "listener accepts: " << get_address(socket);
             std::make_shared<http_session>(
-                std::move(socket))->run();
+                std::move(socket), routes_)->run();
         }
         do_accept();
     }
 public:
     listener(
         asio::io_context& ioc,
-        tcp::endpoint endpoint)
+        tcp::endpoint endpoint,
+        router& routes)
         : ioc_{ioc},
-        acceptor_{asio::make_strand(ioc)} {
+        acceptor_{asio::make_strand(ioc)},
+        routes_{routes} {
         beast::error_code ec;
         acceptor_.open(endpoint.protocol(), ec);
         if (ec) {
             fail(ec, "listener::acceptor open");
+            exit(EXIT_FAILURE);
             return;
         }
         acceptor_.set_option(
             asio::socket_base::reuse_address(true), ec);
         if (ec) {
             fail(ec, "listener::acceptor set_option");
+            exit(EXIT_FAILURE);
             return;
         }
         acceptor_.bind(endpoint, ec);
         if (ec) {
             fail(ec, "listener::acceptor bind");
+            exit(EXIT_FAILURE);
             return;
         }
         acceptor_.listen(
             asio::socket_base::max_listen_connections, ec);
         if (ec) {
             fail(ec, "listener::acceptor listen");
+            exit(EXIT_FAILURE);
             return;
         }
     }
@@ -303,69 +315,59 @@ public:
     }
 };
 
-void show_config() {
-    lginfo << NAME << " config:"
-        << "\nport: " << PORT
-        << "\nthreads: " << NUM_THREADS 
-        << "\ndb-conn: " << NUM_DB_CONN
-        << "\npayload: " << PAYLOAD_LIMIT / 1024 / 1024
-        << "\nrotation: " << LOG_ROTATION_SIZE / 1024 / 1024
-        << "\nlog path: " << LOG_PATH
-        << "\nconn-str: " << DB_CONN_STR << std::endl;
-}
+class server {
+private:
+    // io_context for all I/O
+    asio::io_context ioc_;
+    router routes_;
+public:
+    server(const server_config& config, router&& routes)
+        : ioc_{config.get_num_threads()}, routes_{routes} {
+        init_logging(config);
+
+        // database connection
+        try {
+            db_conn_mgr = std::make_shared<
+                db_connection_manager>(config.get_db_conn_str(), config.get_num_db_conn());
+        } catch (const std::exception& e) {
+            lgfatal << "db connection initialization failed: " << e.what() << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        session_mgr = std::make_shared<memory_session>();
+
+        client_ptr = std::make_shared<client>(ioc_);
+
+        // creates and launches a listening port
+        std::make_shared<listener>(
+            ioc_, tcp::endpoint{tcp::v4(), config.get_port()}, routes_)->run();
+
+        // captures SIGINT and SIGTERM to perform a clean shutdown
+        asio::signal_set signals{ioc_, SIGINT, SIGTERM};
+        signals.async_wait(
+            [&](const boost::system::error_code&, int) {
+            // stops the `io_context`. This will cause `run()`
+            // to return immediately, eventually destroying the
+            // `io_context` and all of the sockets in it.
+            ioc_.stop();
+        });
+
+        lginfo << config.get_name() << " started";
+
+        // runs the I/O service on the requested number of threads
+        std::vector<std::thread> v;
+        v.reserve(config.get_num_threads() - 1);
+        for (int i = 1; i < config.get_num_threads(); ++i)
+            v.emplace_back([&]{ ioc_.run(); });
+        ioc_.run();
+
+        // if we get here, it means we got a SIGINT or SIGTERM
+        lginfo << "exiting " << config.get_name();
+
+        // blocks until all the threads exit
+        for (auto & t : v) t.join();
+    }
+};
 
 }  // bserv
 
-int main(int argc, char* argv[]) {
-    using namespace bserv;
-    if (parse_arguments(argc, argv))
-        return EXIT_FAILURE;
-    init_logging();
-    show_config();
-
-    // io_context for all I/O
-    asio::io_context ioc{NUM_THREADS};
-
-    // some initializations must be done after parsing the arguments
-    // e.g. database connection
-    try {
-        db_conn_mgr = std::make_shared<
-            db_connection_manager>(DB_CONN_STR, NUM_DB_CONN);
-    } catch (const std::exception& e) {
-        lgfatal << "db connection initialization failed: " << e.what() << std::endl;
-        return EXIT_FAILURE;
-    }
-    session_mgr = std::make_shared<memory_session>();
-
-    client_ptr = std::make_shared<client>(ioc);
-
-    // creates and launches a listening port
-    std::make_shared<listener>(
-        ioc, tcp::endpoint{tcp::v4(), PORT})->run();
-
-    // captures SIGINT and SIGTERM to perform a clean shutdown
-    asio::signal_set signals{ioc, SIGINT, SIGTERM};
-    signals.async_wait(
-        [&](const boost::system::error_code&, int) {
-        // stops the `io_context`. This will cause `run()`
-        // to return immediately, eventually destroying the
-        // `io_context` and all of the sockets in it.
-        ioc.stop();
-    });
-
-    lginfo << NAME << " started";
-
-    // runs the I/O service on the requested number of threads
-    std::vector<std::thread> v;
-    v.reserve(NUM_THREADS - 1);
-    for (int i = 1; i < NUM_THREADS; ++i)
-        v.emplace_back([&]{ ioc.run(); });
-    ioc.run();
-
-    // if we get here, it means we got a SIGINT or SIGTERM
-    lginfo << "exiting " << NAME;
-
-    // blocks until all the threads exit
-    for (auto & t : v) t.join();
-    return EXIT_SUCCESS;
-}
+#endif  // _SERVER_HPP

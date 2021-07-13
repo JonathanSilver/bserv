@@ -13,7 +13,7 @@ set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
-add_executable(bserv bserv.cpp)
+add_executable(bserv main.cpp)
 target_link_libraries(bserv
                       pthread
                       boost_thread

@@ -13,7 +13,7 @@
 #include <chrono>
 #include <exception>
 
-#include "config.hpp"
+#include "router.hpp"
 #include "logging.hpp"
 
 namespace bserv {
@@ -77,7 +77,7 @@ public:
             return;
         }
         // sets a timeout on the operation
-        stream_.expires_after(std::chrono::seconds(30));
+        stream_.expires_after(std::chrono::seconds(EXPIRY_TIME));
         // makes the connection on the IP address we get from a lookup
         stream_.async_connect(
             results,
@@ -93,7 +93,7 @@ public:
             return;
         }
         // sets a timeout on the operation
-        stream_.expires_after(std::chrono::seconds(30));
+        stream_.expires_after(std::chrono::seconds(EXPIRY_TIME));
         // sends the HTTP request to the remote host
         http::async_write(
             stream_, req_,

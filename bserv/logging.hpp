@@ -8,6 +8,9 @@
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup.hpp>
 
+#include <cstddef>
+#include <string>
+
 #include "config.hpp"
 
 namespace bserv {
@@ -16,12 +19,11 @@ namespace logging = boost::log;
 namespace keywords = boost::log::keywords;
 namespace src = boost::log::sources;
 
-// this function should be called in `main`
-// right after the configurations are loaded.
-void init_logging() {
+// this function should be called before logging is used
+void init_logging(const server_config& config) {
     logging::add_file_log(
-        keywords::file_name = LOG_PATH + NAME + "_%Y%m%d_%H-%M-%S.%N.log",
-        keywords::rotation_size = LOG_ROTATION_SIZE,
+        keywords::file_name = config.get_log_path() + "_%Y%m%d_%H-%M-%S.%N.log",
+        keywords::rotation_size = config.get_log_rotation_size(),
         keywords::format = "[%Severity%][%TimeStamp%][%ThreadID%]: %Message%"
     );
     logging::core::get()->set_filter(

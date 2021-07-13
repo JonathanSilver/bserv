@@ -10,7 +10,7 @@
 
 #include <pqxx/pqxx>
 
-#include "common.hpp"
+#include "bserv/common.hpp"
 
 // register an orm mapping (to convert the db query results into
 // json objects).

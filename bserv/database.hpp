@@ -88,8 +88,6 @@ db_connection::~db_connection() {
         mgr_.counter_lock_.unlock();
 }
 
-std::shared_ptr<db_connection_manager> db_conn_mgr;
-
 // **************************************************************************
 
 class db_parameter {

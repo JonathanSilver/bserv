@@ -108,18 +108,21 @@ int main(int argc, char* argv[]) {
         bserv::make_path("/register", &user_register,
             bserv::placeholders::request,
             bserv::placeholders::json_params,
-            bserv::placeholders::transaction),
+            bserv::placeholders::db_connection_ptr),
         bserv::make_path("/login", &user_login,
             bserv::placeholders::request,
             bserv::placeholders::json_params,
-            bserv::placeholders::transaction,
+            bserv::placeholders::db_connection_ptr,
             bserv::placeholders::session),
         bserv::make_path("/logout", &user_logout,
             bserv::placeholders::session),
         bserv::make_path("/find/<str>", &find_user,
-            bserv::placeholders::transaction,
+            bserv::placeholders::db_connection_ptr,
             bserv::placeholders::_1),
-        bserv::make_path("/send", &send_request)
+        bserv::make_path("/send", &send_request,
+            bserv::placeholders::http_client_ptr),
+        bserv::make_path("/echo", &echo,
+            bserv::placeholders::json_params)
     }};
     
     return EXIT_SUCCESS;

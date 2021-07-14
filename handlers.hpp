@@ -209,10 +209,10 @@ boost::json::object user_logout(
     };
 }
 
-boost::json::object send_request() {
+boost::json::object send_request(std::shared_ptr<bserv::http_client> client_ptr) {
     // post for response:
-    // auto res = bserv::request::post(
-    //     "localhost", "8081", "/test", {{"msg", "request"}}
+    // auto res = client_ptr->post(
+    //     "localhost", "8080", "/echo", {{"msg", "request"}}
     // ).get();
     // return {{"response", boost::json::parse(res.body())}};
     // -------------------------------------------------------
@@ -221,10 +221,15 @@ boost::json::object send_request() {
     // -------------------------------------------------------
     // post for json response (json value, rather than json
     // object, is returned):
-    auto obj = bserv::request::post_for_object(
-        "localhost", "8081", "/test", {{"msg", "request"}}
+    auto obj = client_ptr->post_for_object(
+        "localhost", "8080", "/echo", {{"msg", "request"}}
     ).get();
     return {{"response", obj}};
+}
+
+boost::json::object echo(
+    boost::json::object&& params) {
+    return params;
 }
 
 #endif  // _HANDLERS_HPP

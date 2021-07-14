@@ -23,9 +23,9 @@ const std::string SESSION_NAME = "bsessionid";
 // using session_type = std::map<std::string, boost::json::value>;
 using session_type = boost::json::object;
 
-struct session_base
-    : std::enable_shared_from_this<session_base> {
-    virtual ~session_base() = default;
+struct session_manager_base
+    : std::enable_shared_from_this<session_manager_base> {
+    virtual ~session_manager_base() = default;
     // if `key` refers to an existing session, that session will be placed in
     // `session_ptr` and this function will return `false`.
     // otherwise, this function will create a new session, place the created
@@ -39,9 +39,7 @@ struct session_base
         std::shared_ptr<session_type>& session_ptr) = 0;
 };
 
-std::shared_ptr<session_base> session_mgr;
-
-class memory_session : public session_base {
+class memory_session_manager : public session_manager_base {
 private:
     using time_point = std::chrono::steady_clock::time_point;
     std::mt19937 rng_;
@@ -58,7 +56,7 @@ private:
     std::set<std::pair<time_point, std::size_t>> queue_;
     mutable std::mutex lock_;
 public:
-    memory_session()
+    memory_session_manager()
         : rng_{utils::internal::get_rd_value()},
         dist_{0, std::numeric_limits<std::size_t>::max()} {}
     bool get_or_create(

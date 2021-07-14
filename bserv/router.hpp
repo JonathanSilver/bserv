@@ -14,6 +14,7 @@
 
 #include <pqxx/pqxx>
 
+#include "client.hpp"
 #include "database.hpp"
 #include "session.hpp"
 #include "utils.hpp"
@@ -24,8 +25,11 @@ namespace bserv {
 namespace beast = boost::beast;
 namespace http = beast::http;
 
-using request_type = http::request<http::string_body>;
-using response_type = http::response<http::string_body>;
+struct server_resources {
+    std::shared_ptr<session_manager_base> session_mgr;
+    std::shared_ptr<db_connection_manager> db_conn_mgr;
+    std::shared_ptr<http_client> http_client_ptr;
+};
 
 namespace placeholders {
 
@@ -55,7 +59,9 @@ constexpr placeholder<-3> response;
 // boost::json::object&&
 constexpr placeholder<-4> json_params;
 // std::shared_ptr<bserv::db_connection>
-constexpr placeholder<-5> transaction;
+constexpr placeholder<-5> db_connection_ptr;
+// std::shared_ptr<bserv::http_client>
+constexpr placeholder<-6> http_client_ptr;
 
 }  // placeholders
 
@@ -116,6 +122,7 @@ struct get_parameter<0, Head, Tail...> {
 
 template <typename Type>
 Type&& get_parameter_data(
+    server_resources&,
     const std::vector<std::string>&,
     request_type&, response_type&, Type&& val) {
     return static_cast<Type&&>(val);
@@ -123,6 +130,7 @@ Type&& get_parameter_data(
 
 template <int N, std::enable_if_t<(N >= 0), int> = 0>
 const std::string& get_parameter_data(
+    server_resources&,
     const std::vector<std::string>& url_params,
     request_type&, response_type&,
     placeholders::placeholder<N>) {
@@ -130,6 +138,7 @@ const std::string& get_parameter_data(
 }
 
 std::shared_ptr<session_type> get_parameter_data(
+    server_resources& resources,
     const std::vector<std::string>&,
     request_type& request, response_type& response,
     placeholders::placeholder<-1>) {
@@ -142,13 +151,14 @@ std::shared_ptr<session_type> get_parameter_data(
         session_id = cookie_dict[SESSION_NAME];
     }
     std::shared_ptr<session_type> session_ptr;
-    if (session_mgr->get_or_create(session_id, session_ptr)) {
+    if (resources.session_mgr->get_or_create(session_id, session_ptr)) {
         response.set(http::field::set_cookie, SESSION_NAME + "=" + session_id);
     }
     return session_ptr;
 }
 
 request_type& get_parameter_data(
+    server_resources&,
     const std::vector<std::string>&,
     request_type& request, response_type&,
     placeholders::placeholder<-2>) {
@@ -156,6 +166,7 @@ request_type& get_parameter_data(
 }
 
 response_type& get_parameter_data(
+    server_resources&,
     const std::vector<std::string>&,
     request_type&, response_type& response,
     placeholders::placeholder<-3>) {
@@ -163,6 +174,7 @@ response_type& get_parameter_data(
 }
 
 boost::json::object get_parameter_data(
+    server_resources&,
     const std::vector<std::string>&,
     request_type& request, response_type&,
     placeholders::placeholder<-4>) {
@@ -195,10 +207,19 @@ boost::json::object get_parameter_data(
 }
 
 std::shared_ptr<db_connection> get_parameter_data(
+    server_resources& resources,
     const std::vector<std::string>&,
     request_type&, response_type&,
     placeholders::placeholder<-5>) {
-    return db_conn_mgr->get_or_block();
+    return resources.db_conn_mgr->get_or_block();
+}
+
+std::shared_ptr<http_client> get_parameter_data(
+    server_resources& resources,
+    const std::vector<std::string>&,
+    request_type&, response_type&,
+    placeholders::placeholder<-6>) {
+    return resources.http_client_ptr;
 }
 
 template <int Idx, typename Func, typename Params, typename ...Args>
@@ -206,15 +227,16 @@ struct path_handler;
 
 template <int Idx, typename Ret, typename ...Args, typename ...Params>
 struct path_handler<Idx, Ret (*)(Args ...), parameter_pack<Params...>> {
-    Ret invoke(Ret (*pf)(Args ...), parameter_pack<Params...>& params,
+    Ret invoke(server_resources& resources,
+        Ret (*pf)(Args ...), parameter_pack<Params...>& params,
         const std::vector<std::string>& url_params,
         request_type& request, response_type& response) {
         if constexpr (Idx == 0) return (*pf)();
         else return static_cast<path_handler<
             Idx - 1, Ret (*)(Args ...), parameter_pack<Params...>,
             typename get_parameter<Idx - 1, Params...>::type>*
-            >(this)->invoke2(pf, params, url_params, request, response,
-                get_parameter_data(url_params, request, response,
+            >(this)->invoke2(resources, pf, params, url_params, request, response,
+                get_parameter_data(resources, url_params, request, response,
                     get_parameter_value<Idx - 1>(params)));
     }
 };
@@ -228,7 +250,8 @@ struct path_handler<Idx, Ret (*)(Args ...),
     template <
         typename Head2, typename ...Tail2,
         std::enable_if_t<sizeof...(Tail2) == sizeof...(Tail), int> = 0>
-    Ret invoke2(Ret (*pf)(Args ...), parameter_pack<Params...>& params, 
+    Ret invoke2(server_resources& resources,
+        Ret (*pf)(Args ...), parameter_pack<Params...>& params, 
         const std::vector<std::string>& url_params,
         request_type& request, response_type& response,
         Head2&& head2, Tail2&& ...tail2) {
@@ -238,8 +261,8 @@ struct path_handler<Idx, Ret (*)(Args ...),
         else return static_cast<path_handler<
             Idx - 1, Ret (*)(Args ...), parameter_pack<Params...>,
             typename get_parameter<Idx - 1, Params...>::type, Head, Tail...>*
-            >(this)->invoke2(pf, params, url_params, request, response,
-                get_parameter_data(url_params, request, response,
+            >(this)->invoke2(resources, pf, params, url_params, request, response,
+                get_parameter_data(resources, url_params, request, response,
                     get_parameter_value<Idx - 1>(params)),
                 static_cast<Head2&&>(head2), static_cast<Tail2&&>(tail2)...);
     }
@@ -265,6 +288,7 @@ struct path_holder : std::enable_shared_from_this<path_holder> {
         const std::string&,
         std::vector<std::string>&) const = 0;
     virtual std::optional<boost::json::value> invoke(
+        server_resources&,
         const std::vector<std::string>&,
         request_type&, response_type&) = 0;
 };
@@ -295,9 +319,11 @@ public:
         return matched;
     }
     std::optional<boost::json::value> invoke(
+        server_resources& resources,
         const std::vector<std::string>& url_params,
         request_type& request, response_type& response) {
         return handler_.invoke(
+            resources,
             pf_, params_, url_params,
             request, response);
     }
@@ -335,15 +361,19 @@ class router {
 private:
     using path_holder_type = std::shared_ptr<router_internal::path_holder>;
     std::vector<path_holder_type> paths_;
+    std::shared_ptr<server_resources> resources_;
 public:
     router(const std::initializer_list<path_holder_type>& paths)
         : paths_{paths} {}
+    void set_resources(std::shared_ptr<server_resources> resources) {
+        resources_ = resources;
+    }
     std::optional<boost::json::value> operator()(
         const std::string& url, request_type& request, response_type& response) {
         std::vector<std::string> url_params;
         for (auto& ptr : paths_) {
             if (ptr->match(url, url_params))
-                return ptr->invoke(url_params, request, response);
+                return ptr->invoke(*resources_, url_params, request, response);
         }
         throw url_not_found_exception{};
     }

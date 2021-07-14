@@ -320,22 +320,32 @@ private:
     // io_context for all I/O
     asio::io_context ioc_;
     router routes_;
+    std::shared_ptr<session_manager_base> session_mgr_;
+    std::shared_ptr<db_connection_manager> db_conn_mgr_;
+    std::shared_ptr<http_client> http_client_ptr_;
 public:
     server(const server_config& config, router&& routes)
-        : ioc_{config.get_num_threads()}, routes_{routes} {
+        : ioc_{config.get_num_threads()},
+        routes_{std::move(routes)} {
         init_logging(config);
 
         // database connection
         try {
-            db_conn_mgr = std::make_shared<
+            db_conn_mgr_ = std::make_shared<
                 db_connection_manager>(config.get_db_conn_str(), config.get_num_db_conn());
         } catch (const std::exception& e) {
             lgfatal << "db connection initialization failed: " << e.what() << std::endl;
             exit(EXIT_FAILURE);
         }
-        session_mgr = std::make_shared<memory_session>();
+        session_mgr_ = std::make_shared<memory_session_manager>();
+        http_client_ptr_ = std::make_shared<http_client>(ioc_);
 
-        client_ptr = std::make_shared<client>(ioc_);
+        std::shared_ptr<server_resources> resources_ptr = std::make_shared<server_resources>();
+        resources_ptr->session_mgr = session_mgr_;
+        resources_ptr->db_conn_mgr = db_conn_mgr_;
+        resources_ptr->http_client_ptr = http_client_ptr_;
+
+        routes_.set_resources(resources_ptr);
 
         // creates and launches a listening port
         std::make_shared<listener>(

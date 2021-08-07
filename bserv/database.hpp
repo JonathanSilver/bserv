@@ -1,7 +1,7 @@
 #ifndef _DATABASE_HPP
 #define _DATABASE_HPP
 
-#include <boost/json/src.hpp>
+#include <boost/json.hpp>
 
 #include <cstddef>
 #include <string>
@@ -78,7 +78,7 @@ public:
     }
 };
 
-db_connection::~db_connection() {
+inline db_connection::~db_connection() {
     std::lock_guard<std::mutex> lg{mgr_.queue_lock_};
     mgr_.queue_.emplace(conn_);
     // if this is the first available connection back to the queue,
@@ -157,12 +157,12 @@ std::shared_ptr<db_parameter> convert_parameter(
     return std::make_shared<db_value<Param>>(param);
 }
 
-std::shared_ptr<db_parameter> convert_parameter(
+inline std::shared_ptr<db_parameter> convert_parameter(
     const char* param) {
     return std::make_shared<db_value<std::string>>(param);
 }
 
-std::shared_ptr<db_parameter> convert_parameter(
+inline std::shared_ptr<db_parameter> convert_parameter(
     const db_name& param) {
     return std::make_shared<db_name>(param);
 }

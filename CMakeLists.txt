@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(bserv)
+project(bserv_main)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -13,12 +13,7 @@ set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
-add_executable(bserv main.cpp)
-target_link_libraries(bserv
-                      pthread
-                      boost_thread
-                      boost_log
-                      boost_log_setup
-                      pqxx
-                      pq
-                      cryptopp)
+add_subdirectory(bserv)
+
+add_executable(main main.cpp)
+target_link_libraries(main bserv)

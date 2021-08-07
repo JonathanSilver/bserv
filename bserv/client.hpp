@@ -2,8 +2,9 @@
 #define _CLIENT_HPP
 
 #include <boost/beast.hpp>
+#include <boost/asio/spawn.hpp>
 #include <boost/asio.hpp>
-#include <boost/json/src.hpp>
+#include <boost/json.hpp>
 
 #include <iostream>
 #include <string>
@@ -29,139 +30,74 @@ using response_type = http::response<http::string_body>;
 class request_failed_exception
     : public std::exception {
 private:
-    std::string msg_;
+    const std::string msg_;
 public:
     request_failed_exception(const std::string& msg) : msg_{msg} {}
     const char* what() const noexcept { return msg_.c_str(); }
 };
 
 // https://www.boost.org/doc/libs/1_75_0/libs/beast/example/http/client/async/http_client_async.cpp
+// https://www.boost.org/doc/libs/1_75_0/libs/beast/example/http/client/coro/http_client_coro.cpp
 
 // sends one async request to a remote server
-template <typename ResponseType>
-class http_client_session
-    : public std::enable_shared_from_this<
-        http_client_session<ResponseType>> {
-private:
-    tcp::resolver resolver_;
-    beast::tcp_stream stream_;
-    // must persist between reads
-    beast::flat_buffer buffer_;
-    http::request<http::string_body> req_;
-    http::response<http::string_body> res_;
-    std::promise<ResponseType> promise_;
-    void failed(const beast::error_code& ec, const std::string& what) {
-        promise_.set_exception(
-            std::make_exception_ptr(
-                request_failed_exception{what + ": " + ec.message()}));
-    }
-public:
-    http_client_session(
+inline http::response<http::string_body> http_client_send(
         asio::io_context& ioc,
-        const http::request<http::string_body>& req)
-    : resolver_{asio::make_strand(ioc)},
-    stream_{asio::make_strand(ioc)}, req_{req} {}
-    std::future<ResponseType> send(
+        asio::yield_context& yield,
         const std::string& host,
-        const std::string& port) {
-        resolver_.async_resolve(
-            host, port,
-            beast::bind_front_handler(
-                &http_client_session::on_resolve,
-                http_client_session<ResponseType>::shared_from_this()));
-        return promise_.get_future();
+        const std::string& port,
+        const http::request<http::string_body>& req) {
+    beast::error_code ec;
+    tcp::resolver resolver{ioc};
+    const auto results = resolver.async_resolve(host, port, yield[ec]);
+    if (ec) {
+        throw request_failed_exception{"http_client_session::resolver resolve: " + ec.message()};
     }
-    void on_resolve(
-        beast::error_code ec,
-        tcp::resolver::results_type results) {
-        if (ec) {
-            failed(ec, "http_client_session::resolver resolve");
-            return;
-        }
-        // sets a timeout on the operation
-        stream_.expires_after(std::chrono::seconds(EXPIRY_TIME));
-        // makes the connection on the IP address we get from a lookup
-        stream_.async_connect(
-            results,
-            beast::bind_front_handler(
-                &http_client_session::on_connect,
-                http_client_session<ResponseType>::shared_from_this()));
+    beast::tcp_stream stream{ioc};
+    // sets a timeout on the operation
+    stream.expires_after(std::chrono::seconds(EXPIRY_TIME));
+    // makes the connection on the IP address we get from a lookup
+    stream.async_connect(results, yield[ec]);
+    if (ec) {
+        throw request_failed_exception{"http_client_session::stream connect: " + ec.message()};
     }
-    void on_connect(
-        beast::error_code ec,
-        tcp::resolver::results_type::endpoint_type) {
-        if (ec) {
-            failed(ec, "http_client_session::stream connect");
-            return;
-        }
-        // sets a timeout on the operation
-        stream_.expires_after(std::chrono::seconds(EXPIRY_TIME));
-        // sends the HTTP request to the remote host
-        http::async_write(
-            stream_, req_,
-            beast::bind_front_handler(
-                &http_client_session::on_write,
-                http_client_session<ResponseType>::shared_from_this()));
+    // sets a timeout on the operation
+    stream.expires_after(std::chrono::seconds(EXPIRY_TIME));
+    // sends the HTTP request to the remote host
+    http::async_write(stream, req, yield[ec]);
+    if (ec) {
+        throw request_failed_exception{"http_client_session::stream write: " + ec.message()};
     }
-    void on_write(
-        beast::error_code ec,
-        std::size_t bytes_transferred) {
-        boost::ignore_unused(bytes_transferred);
-        if (ec) {
-            failed(ec, "http_client_session::stream write");
-            return;
-        }
-        // receives the HTTP response
-        http::async_read(
-            stream_, buffer_, res_,
-            beast::bind_front_handler(
-                &http_client_session::on_read, 
-                http_client_session<ResponseType>::shared_from_this()));
+    beast::flat_buffer buffer;
+    http::response<http::string_body> res;
+    // receives the HTTP response
+    http::async_read(stream, buffer, res, yield[ec]);
+    if (ec) {
+        throw request_failed_exception{"http_client_session::stream read: " + ec.message()};
     }
-    static_assert(std::is_same<ResponseType, http::response<http::string_body>>::value
-        || std::is_same<ResponseType, boost::json::value>::value,
-        "unsupported `ResponseType`");
-    void on_read(
-        beast::error_code ec,
-        std::size_t bytes_transferred) {
-        boost::ignore_unused(bytes_transferred);
-        if (ec) {
-            failed(ec, "http_client_session::stream read");
-            return;
-        }
-        if constexpr (std::is_same<ResponseType, http::response<http::string_body>>::value) {
-            promise_.set_value(std::move(res_));
-        } else if constexpr (std::is_same<ResponseType, boost::json::value>::value) {
-            promise_.set_value(boost::json::parse(res_.body()));
-        } else { // this should never happen
-            promise_.set_exception(
-                std::make_exception_ptr(
-                    request_failed_exception{"unsupported `ResponseType`"}));
-        }
-        // gracefully close the socket
-        stream_.socket().shutdown(tcp::socket::shutdown_both, ec);
-        // `not_connected` happens sometimes so don't bother reporting it
-        if (ec && ec != beast::errc::not_connected) {
-            // reports the error to the log!
-            fail(ec, "http_client_session::stream::socket shutdown");
-            return;
-        }
-        // if we get here then the connection is closed gracefully
+    // gracefully close the socket
+    stream.socket().shutdown(tcp::socket::shutdown_both, ec);
+    // `not_connected` happens sometimes so don't bother reporting it
+    if (ec && ec != beast::errc::not_connected) {
+        // reports the error to the log!
+        fail(ec, "http_client_session::stream::socket shutdown");
+        // return;
     }
-};
+    // if we get here then the connection is closed gracefully
+    return res;
+}
 
-request_type get_request(
+inline request_type get_request(
     const std::string& host,
     const std::string& target,
     const http::verb& method,
-    const boost::json::object& obj) {
+    const boost::json::value& val) {
     request_type req;
     req.method(method);
     req.target(target);
     req.set(http::field::host, host);
     req.set(http::field::user_agent, NAME);
     req.set(http::field::content_type, "application/json");
-    req.body() = boost::json::serialize(obj);
+    req.body() = boost::json::serialize(val);
     req.prepare_payload();
     return req;
 }
@@ -169,99 +105,97 @@ request_type get_request(
 class http_client {
 private:
     asio::io_context& ioc_;
+    asio::yield_context& yield_;
 public:
-    http_client(asio::io_context& ioc)
-    : ioc_{ioc} {}
-    std::future<http::response<http::string_body>> request(
+    http_client(asio::io_context& ioc, asio::yield_context& yield)
+    : ioc_{ioc}, yield_{yield} {}
+    http::response<http::string_body> request(
         const std::string& host,
         const std::string& port,
         const http::request<http::string_body>& req) {
-        return std::make_shared<
-            http_client_session<http::response<http::string_body>>
-        >(ioc_, req)->send(host, port);
+        return http_client_send(ioc_, yield_, host, port, req);
     }
-    std::future<boost::json::value> request_for_object(
+    boost::json::value request_for_value(
         const std::string& host,
         const std::string& port,
         const http::request<http::string_body>& req) {
-        return std::make_shared<
-            http_client_session<boost::json::value>
-        >(ioc_, req)->send(host, port);
+        return boost::json::parse(request(host, port, req).body());
     }
 
-    std::future<response_type> send(
+    response_type send(
         const std::string& host,
         const std::string& port,
         const std::string& target,
         const http::verb& method,
-        const boost::json::object& obj) {
-        request_type req = get_request(host, target, method, obj);
+        const boost::json::value& val) {
+        request_type req = get_request(host, target, method, val);
         return request(host, port, req);
     }
-    std::future<boost::json::value> send_for_object(
+    boost::json::value send_for_value(
         const std::string& host,
         const std::string& port,
         const std::string& target,
         const http::verb& method,
-        const boost::json::object& obj) {
-        request_type req = get_request(host, target, method, obj);
-        return request_for_object(host, port, req);
+        const boost::json::value& val) {
+        request_type req = get_request(host, target, method, val);
+        return request_for_value(host, port, req);
     }
-    std::future<response_type> get(
+
+    response_type get(
         const std::string& host,
         const std::string& port,
         const std::string& target,
-        const boost::json::object& obj) {
-        return send(host, port, target, http::verb::get, obj);
+        const boost::json::value& val) {
+        return send(host, port, target, http::verb::get, val);
     }
-    std::future<boost::json::value> get_for_object(
+    boost::json::value get_for_value(
         const std::string& host,
         const std::string& port,
         const std::string& target,
-        const boost::json::object& obj) {
-        return send_for_object(host, port, target, http::verb::get, obj);
+        const boost::json::value& val) {
+        return send_for_value(host, port, target, http::verb::get, val);
     }
-    std::future<response_type> put(
+    response_type put(
         const std::string& host,
         const std::string& port,
         const std::string& target,
-        const boost::json::object& obj) {
-        return send(host, port, target, http::verb::put, obj);
+        const boost::json::value& val) {
+        return send(host, port, target, http::verb::put, val);
     }
-    std::future<boost::json::value> put_for_object(
+    boost::json::value put_for_value(
         const std::string& host,
         const std::string& port,
         const std::string& target,
-        const boost::json::object& obj) {
-        return send_for_object(host, port, target, http::verb::put, obj);
+        const boost::json::value& val) {
+        return send_for_value(host, port, target, http::verb::put, val);
     }
-    std::future<response_type> post(
+    response_type post(
         const std::string& host,
         const std::string& port,
         const std::string& target,
-        const boost::json::object& obj) {
-        return send(host, port, target, http::verb::post, obj);
+        const boost::json::value& val) {
+        return send(host, port, target, http::verb::post, val);
     }
-    std::future<boost::json::value> post_for_object(
+    boost::json::value post_for_value(
         const std::string& host,
         const std::string& port,
         const std::string& target,
-        const boost::json::object& obj) {
-        return send_for_object(host, port, target, http::verb::post, obj);
+        const boost::json::value& val) {
+        return send_for_value(host, port, target, http::verb::post, val);
     }
-    std::future<response_type> delete_(
+    response_type delete_(
         const std::string& host,
         const std::string& port,
         const std::string& target,
-        const boost::json::object& obj) {
-        return send(host, port, target, http::verb::delete_, obj);
+        const boost::json::value& val) {
+        return send(host, port, target, http::verb::delete_, val);
     }
-    std::future<boost::json::value> delete_for_object(
+    boost::json::value delete_for_value(
         const std::string& host,
         const std::string& port,
         const std::string& target,
-        const boost::json::object& obj) {
-        return send_for_object(host, port, target, http::verb::delete_, obj);
+        const boost::json::value& val) {
+        return send_for_value(host, port, target, http::verb::delete_, val);
     }
 };
 

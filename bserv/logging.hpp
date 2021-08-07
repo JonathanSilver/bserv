@@ -20,7 +20,7 @@ namespace keywords = boost::log::keywords;
 namespace src = boost::log::sources;
 
 // this function should be called before logging is used
-void init_logging(const server_config& config) {
+inline void init_logging(const server_config& config) {
     logging::add_file_log(
         keywords::file_name = config.get_log_path() + "_%Y%m%d_%H-%M-%S.%N.log",
         keywords::rotation_size = config.get_log_rotation_size(),
@@ -39,7 +39,7 @@ void init_logging(const server_config& config) {
 #define lgerror BOOST_LOG_TRIVIAL(error)
 #define lgfatal BOOST_LOG_TRIVIAL(fatal)
 
-void fail(const boost::system::error_code& ec, const char* what) {
+inline void fail(const boost::system::error_code& ec, const char* what) {
     lgerror << what << ": " << ec.message() << std::endl;
 }
 

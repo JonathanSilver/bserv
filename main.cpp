@@ -120,9 +120,15 @@ int main(int argc, char* argv[]) {
             bserv::placeholders::db_connection_ptr,
             bserv::placeholders::_1),
         bserv::make_path("/send", &send_request,
-            bserv::placeholders::http_client_ptr),
+            bserv::placeholders::session,
+            bserv::placeholders::http_client_ptr,
+            bserv::placeholders::json_params),
         bserv::make_path("/echo", &echo,
             bserv::placeholders::json_params)
+    }, {
+        bserv::make_path("/echo", &ws_echo,
+            bserv::placeholders::session,
+            bserv::placeholders::websocket_server_ptr)
     }};
     
     return EXIT_SUCCESS;

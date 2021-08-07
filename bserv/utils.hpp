@@ -25,10 +25,10 @@ namespace internal {
 //   it doesn't work with GNU GCC on Windows.
 // - for thread-safety, do not directly use it.
 //   use `get_rd_value` instead.
-std::random_device rd;
-std::mutex rd_mutex;
+inline std::random_device rd;
+inline std::mutex rd_mutex;
 
-auto get_rd_value() {
+inline auto get_rd_value() {
     std::lock_guard<std::mutex> lg{rd_mutex};
     return rd();
 }
@@ -51,7 +51,7 @@ const std::string url_safe_characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 }  // internal
 
 // https://www.boost.org/doc/libs/1_75_0/libs/random/example/password.cpp
-std::string generate_random_string(std::size_t len) {
+inline std::string generate_random_string(std::size_t len) {
     std::string s;
     std::mt19937 rng{internal::get_rd_value()};
     std::uniform_int_distribution<> dist{0, (int) internal::chars.length() - 1};
@@ -62,7 +62,7 @@ std::string generate_random_string(std::size_t len) {
 namespace security {
 
 // https://codahale.com/a-lesson-in-timing-attacks/
-bool constant_time_compare(const std::string& a, const std::string& b) {
+inline bool constant_time_compare(const std::string& a, const std::string& b) {
     if (a.length() != b.length())
         return false;
     int result = 0;
@@ -72,7 +72,7 @@ bool constant_time_compare(const std::string& a, const std::string& b) {
 }
 
 // https://cryptopp.com/wiki/PKCS5_PBKDF2_HMAC
-std::string hash_password(
+inline std::string hash_password(
     const std::string& password,
     const std::string& salt,
     unsigned int iterations = 20000 /*320000*/) {
@@ -91,13 +91,13 @@ std::string hash_password(
     return result;
 }
 
-std::string encode_password(const std::string& password) {
+inline std::string encode_password(const std::string& password) {
     std::string salt = generate_random_string(16);
     std::string hashed_password = hash_password(password, salt);
     return salt + '$' + hashed_password;
 }
 
-bool check_password(const std::string& password,
+inline bool check_password(const std::string& password,
     const std::string& encoded_password) {
     std::string salt, hashed_password;
     std::string* a = &salt, * b = &hashed_password;
@@ -126,7 +126,7 @@ bool check_password(const std::string& password,
 
 // https://stackoverflow.com/questions/54060359/encoding-decoded-urls-in-c
 // there can be exceptions (std::stoi)!
-std::string decode_url(const std::string& s) {
+inline std::string decode_url(const std::string& s) {
     std::string r;
     for (std::size_t i = 0; i < s.length(); ++i) {
         if (s[i] == '%') {
@@ -139,7 +139,7 @@ std::string decode_url(const std::string& s) {
     return r;
 }
 
-std::string encode_url(const std::string& s) {
+inline std::string encode_url(const std::string& s) {
     std::ostringstream oss;
     for (auto& c : s) {
         if (internal::url_safe_characters.find(c) != std::string::npos) {
@@ -156,6 +156,7 @@ std::string encode_url(const std::string& s) {
 // where '&' can be any delimiter.
 // ki and vi will be converted if they are percent-encoded,
 // which is why the returned values are `string`, not `string_view`.
+inline
 std::pair<
     std::map<std::string, std::string>,
     std::map<std::string, std::vector<std::string>>>
@@ -218,6 +219,7 @@ parse_params(std::string& s, std::size_t start_pos = 0, char delimiter = '&') {
 // this function will convert ki and vi if they are percent-encoded.
 // NOTE: don't misuse this function, it's going to modify
 //       the parameter `s` in place!
+inline
 std::tuple<std::string,
            std::map<std::string, std::string>,
            std::map<std::string, std::vector<std::string>>>

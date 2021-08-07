@@ -1,7 +1,7 @@
 #ifndef _HANDLERS_HPP
 #define _HANDLERS_HPP
 
-#include <boost/json/src.hpp>
+#include <boost/json.hpp>
 
 #include <string>
 #include <memory>
@@ -209,11 +209,14 @@ boost::json::object user_logout(
     };
 }
 
-boost::json::object send_request(std::shared_ptr<bserv::http_client> client_ptr) {
+boost::json::object send_request(
+        std::shared_ptr<bserv::session_type> session,
+        std::shared_ptr<bserv::http_client> client_ptr,
+        boost::json::object&& params) {
     // post for response:
     // auto res = client_ptr->post(
     //     "localhost", "8080", "/echo", {{"msg", "request"}}
-    // ).get();
+    // );
     // return {{"response", boost::json::parse(res.body())}};
     // -------------------------------------------------------
     // - if it takes longer than 30 seconds (by default) to
@@ -221,15 +224,35 @@ boost::json::object send_request(std::shared_ptr<bserv::http_client> client_ptr)
     // -------------------------------------------------------
     // post for json response (json value, rather than json
     // object, is returned):
-    auto obj = client_ptr->post_for_object(
-        "localhost", "8080", "/echo", {{"msg", "request"}}
-    ).get();
-    return {{"response", obj}};
+    auto obj = client_ptr->post_for_value(
+        "localhost", "8080", "/echo", {{"request", params}}
+    );
+    if (session->count("cnt") == 0) {
+        (*session)["cnt"] = 0;
+    }
+    (*session)["cnt"] = (*session)["cnt"].as_int64() + 1;
+    return {{"response", obj}, {"cnt", (*session)["cnt"]}};
 }
 
 boost::json::object echo(
     boost::json::object&& params) {
-    return params;
+    return {{"echo", params}};
+}
+
+// websocket
+std::nullopt_t ws_echo(
+        std::shared_ptr<bserv::session_type> session,
+        std::shared_ptr<bserv::websocket_server> ws_server) {
+    ws_server->write_json((*session)["cnt"]);
+    while (true) {
+        try {
+            std::string data = ws_server->read();
+            ws_server->write(data);
+        } catch (bserv::websocket_closed&) {
+            break;
+        }
+    }
+    return std::nullopt;
 }
 
 #endif  // _HANDLERS_HPP

@@ -1,7 +1,7 @@
 #ifndef _SESSION_HPP
 #define _SESSION_HPP
 
-#include <boost/json/src.hpp>
+#include <boost/json.hpp>
 
 #include <cstddef>
 #include <string>

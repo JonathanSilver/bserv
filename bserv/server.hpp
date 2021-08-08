@@ -45,7 +45,7 @@ private:
     std::shared_ptr<session_manager_base> session_mgr_;
     std::shared_ptr<db_connection_manager> db_conn_mgr_;
 public:
-    server(const server_config& config, router&& routes, router&& ws_routes);
+    server(const server_config& config, router&& routes, router&& ws_routes = {});
 };
 
 }  // bserv

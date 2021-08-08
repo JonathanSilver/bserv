@@ -8,13 +8,21 @@ from pprint import pprint
 
 from time import time
 
-# session = requests.session()
-# pprint(session.post("http://localhost:8080/send", json={"id": "abc"}).json())
-# pprint(session.post("http://localhost:8080/send", json={"id": "def"}).json())
-# pprint(session.post("http://localhost:8080/send", json={"id": "ghi"}).json())
+def size_test():
+    session = requests.session()
+    length = 4 * 1024 * 1024  # ~4MB
+    data = {"id": "a" * length}
+    res = session.post("http://localhost:8080/echo", json=data).json()
+    if {"echo": data} != res:
+        print("size test: failed")
+    else:
+        print("size test: ok")
+    print()
+
+size_test()
 # exit()
 
-P = 100  # number of concurrent processes
+P = 500  # number of concurrent processes
 N = 10  # for each process, the number of sessions
 R = 10  # for each session, the number of posts
 

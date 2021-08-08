@@ -12,8 +12,8 @@ void show_usage(const bserv::server_config& config) {
         "Option:\n"
         "  -h, --help      show help and exit\n"
         "  -p, --port      port (default: 8080)\n"
-        "      --threads   number of threads (default: 4)\n"
-        "      --rotation  log rotation size in mega bytes (default: 4)\n"
+        "      --threads   number of threads (default: # of cpu cores)\n"
+        "      --rotation  log rotation size in mega bytes (default: 8)\n"
         "      --log-path  log path (default: ./log/bserv)\n"
         "      --num-conn  number of database connections (default: 10)\n"
         "  -c, --conn-str  connection string (default: dbname=bserv)"
@@ -125,11 +125,13 @@ int main(int argc, char* argv[]) {
             bserv::placeholders::json_params),
         bserv::make_path("/echo", &echo,
             bserv::placeholders::json_params)
-    }, {
+    }
+    , {
         bserv::make_path("/echo", &ws_echo,
             bserv::placeholders::session,
             bserv::placeholders::websocket_server_ptr)
-    }};
+    }
+    };
     
     return EXIT_SUCCESS;
 }

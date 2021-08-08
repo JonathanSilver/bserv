@@ -5,18 +5,20 @@
 #include <string>
 #include <cstddef>
 #include <optional>
+#include <thread>
 
 namespace bserv {
 
 const std::string NAME = "bserv";
 
 const unsigned short PORT = 8080;
-const int NUM_THREADS = 4;
+const int NUM_THREADS = 
+    std::thread::hardware_concurrency() > 0 ? std::thread::hardware_concurrency() : 1;
 
-const std::size_t PAYLOAD_LIMIT = 1 * 1024 * 1024;
+const std::size_t PAYLOAD_LIMIT = 8 * 1024 * 1024;
 const int EXPIRY_TIME = 30;  // seconds
 
-const std::size_t LOG_ROTATION_SIZE = 4 * 1024 * 1024;
+const std::size_t LOG_ROTATION_SIZE = 8 * 1024 * 1024;
 const std::string LOG_PATH = "./log/" + NAME;
 
 const int NUM_DB_CONN = 10;

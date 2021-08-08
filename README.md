@@ -29,9 +29,9 @@ You can import the sample database:
   ```
 
 
-### Routing
+### Server & Routing
 
-Configure routing in [routing.hpp](routing.hpp).
+Configure server & routing in [main.cpp](main.cpp).
 
 
 ### Handlers

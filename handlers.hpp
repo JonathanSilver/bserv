@@ -8,8 +8,6 @@
 #include <vector>
 #include <optional>
 
-#include <pqxx/pqxx>
-
 #include "bserv/common.hpp"
 
 // register an orm mapping (to convert the db query results into
@@ -35,17 +33,17 @@ bserv::db_relation_to_object orm_user{
 };
 
 std::optional<boost::json::object> get_user(
-    pqxx::work& tx,
-    const std::string& username) {
-    pqxx::result r = bserv::db_exec(tx,
+        bserv::db_transaction& tx,
+        const std::string& username) {
+    bserv::db_result r = tx.exec(
         "select * from auth_user where username = ?", username);
     lginfo << r.query(); // this is how you log info
     return orm_user.convert_to_optional(r);
 }
 
 std::string get_or_empty(
-    boost::json::object& obj,
-    const std::string& key) {
+        boost::json::object& obj,
+        const std::string& key) {
     return obj.count(key) ? obj[key].as_string().c_str() : "";
 }
 
@@ -53,15 +51,25 @@ std::string get_or_empty(
 // the return type should be `std::nullopt_t`,
 // and the return value should be `std::nullopt`.
 std::nullopt_t hello(
-    bserv::response_type& response,
-    std::shared_ptr<bserv::session_type> session_ptr) {
+        bserv::response_type& response,
+        std::shared_ptr<bserv::session_type> session_ptr) {
     bserv::session_type& session = *session_ptr;
     boost::json::object obj;
     if (session.count("user")) {
+        // NOTE: modifications to sessions must be performed
+        // BEFORE referencing objects in them. this is because
+        // modifications might invalidate referenced objects.
+        // in this example, "count" might be added to `session`,
+        // which should be performed first.
+        // then `user` can be referenced safely.
+        if (!session.count("count")) {
+            session["count"] = 0;
+        }
         auto& user = session["user"].as_object();
+        session["count"] = session["count"].as_int64() + 1;
         obj = {
-            {"msg", std::string{"welcome, "}
-                + user["username"].as_string().c_str() + "!"}
+            {"welcome", user["username"]},
+            {"count", session["count"]}
         };
     } else {
         obj = {{"msg", "hello, world!"}};
@@ -76,11 +84,11 @@ std::nullopt_t hello(
 // if you return a json object, the serialization
 // is performed automatically.
 boost::json::object user_register(
-    bserv::request_type& request,
-    // the json object is obtained from the request body,
-    // as well as the url parameters
-    boost::json::object&& params,
-    std::shared_ptr<bserv::db_connection> conn) {
+        bserv::request_type& request,
+        // the json object is obtained from the request body,
+        // as well as the url parameters
+        boost::json::object&& params,
+        std::shared_ptr<bserv::db_connection> conn) {
     if (request.method() != boost::beast::http::verb::post) {
         throw bserv::url_not_found_exception{};
     }
@@ -97,7 +105,7 @@ boost::json::object user_register(
         };
     }
     auto username = params["username"].as_string();
-    pqxx::work tx{conn->get()};
+    bserv::db_transaction tx{conn};
     auto opt_user = get_user(tx, username.c_str());
     if (opt_user.has_value()) {
         return {
@@ -106,7 +114,7 @@ boost::json::object user_register(
         };
     }
     auto password = params["password"].as_string();
-    pqxx::result r = bserv::db_exec(tx,
+    bserv::db_result r = tx.exec(
         "insert into ? "
         "(?, password, is_superuser, "
         "first_name, last_name, email, is_active) values "
@@ -127,10 +135,10 @@ boost::json::object user_register(
 }
 
 boost::json::object user_login(
-    bserv::request_type& request,
-    boost::json::object&& params,
-    std::shared_ptr<bserv::db_connection> conn,
-    std::shared_ptr<bserv::session_type> session_ptr) {
+        bserv::request_type& request,
+        boost::json::object&& params,
+        std::shared_ptr<bserv::db_connection> conn,
+        std::shared_ptr<bserv::session_type> session_ptr) {
     if (request.method() != boost::beast::http::verb::post) {
         throw bserv::url_not_found_exception{};
     }
@@ -147,7 +155,7 @@ boost::json::object user_login(
         };
     }
     auto username = params["username"].as_string();
-    pqxx::work tx{conn->get()};
+    bserv::db_transaction tx{conn};
     auto opt_user = get_user(tx, username.c_str());
     if (!opt_user.has_value()) {
         return {
@@ -180,9 +188,9 @@ boost::json::object user_login(
 }
 
 boost::json::object find_user(
-    std::shared_ptr<bserv::db_connection> conn,
-    const std::string& username) {
-    pqxx::work tx{conn->get()};
+        std::shared_ptr<bserv::db_connection> conn,
+        const std::string& username) {
+    bserv::db_transaction tx{conn};
     auto user = get_user(tx, username);
     if (!user.has_value()) {
         return {
@@ -190,6 +198,7 @@ boost::json::object find_user(
             {"message", "requested user does not exist"}
         };
     }
+    user.value().erase("id");
     user.value().erase("password");
     return {
         {"success", true},
@@ -198,7 +207,7 @@ boost::json::object find_user(
 }
 
 boost::json::object user_logout(
-    std::shared_ptr<bserv::session_type> session_ptr) {
+        std::shared_ptr<bserv::session_type> session_ptr) {
     bserv::session_type& session = *session_ptr;
     if (session.count("user")) {
         session.erase("user");
@@ -235,7 +244,7 @@ boost::json::object send_request(
 }
 
 boost::json::object echo(
-    boost::json::object&& params) {
+        boost::json::object&& params) {
     return {{"echo", params}};
 }
 

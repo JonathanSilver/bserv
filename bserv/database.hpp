@@ -16,16 +16,61 @@
 
 namespace bserv {
 
+using raw_db_connection_type = pqxx::connection;
+using raw_db_transaction_type = pqxx::work;
+
+class db_field {
+private:
+    pqxx::field field_;
+public:
+    db_field(const pqxx::field& field) : field_{field} {}
+    const char* c_str() const { return field_.c_str(); }
+    template <typename Type>
+    Type as() const { return field_.as<Type>(); }
+};
+
+class db_row {
+private:
+    pqxx::row row_;
+public:
+    db_row(const pqxx::row& row) : row_{row} {}
+    std::size_t size() const { return row_.size(); }
+    db_field operator[](std::size_t idx) const { return row_[idx]; }
+};
+
+class db_result {
+private:
+    pqxx::result result_;
+public:
+    class const_iterator {
+    private:
+        pqxx::result::const_iterator iterator_;
+    public:
+        const_iterator(
+            const pqxx::result::const_iterator& iterator
+        ) : iterator_{iterator} {}
+        const_iterator& operator++() { ++iterator_; return *this; }
+        bool operator==(const const_iterator& rhs) const { return iterator_ == rhs.iterator_; }
+        bool operator!=(const const_iterator& rhs) const { return iterator_ != rhs.iterator_; }
+        db_row operator*() const { return *iterator_; }
+    };
+    db_result() = default;
+    db_result(const pqxx::result& result) : result_{result} {}
+    const_iterator begin() const { return result_.begin(); }
+    const_iterator end() const { return result_.end(); }
+    std::string query() const { return result_.query(); }
+};
+
 class db_connection_manager;
 
 class db_connection {
 private:
     db_connection_manager& mgr_;
-    std::shared_ptr<pqxx::connection> conn_;
+    std::shared_ptr<raw_db_connection_type> conn_;
 public:
     db_connection(
         db_connection_manager& mgr,
-        std::shared_ptr<pqxx::connection> conn)
+        std::shared_ptr<raw_db_connection_type> conn)
     : mgr_{mgr}, conn_{conn} {}
     // non-copiable, non-assignable
     db_connection(const db_connection&) = delete;
@@ -33,13 +78,13 @@ public:
     // during the destruction, it should put itself back to the 
     // manager's queue
     ~db_connection();
-    pqxx::connection& get() { return *conn_; }
+    raw_db_connection_type& get() { return *conn_; }
 };
 
 // provides the database connection pool functionality
 class db_connection_manager {
 private:
-    std::queue<std::shared_ptr<pqxx::connection>> queue_;
+    std::queue<std::shared_ptr<raw_db_connection_type>> queue_;
     // this lock is for manipulating the `queue_`
     mutable std::mutex queue_lock_;
     // since C++ 17 doesn't provide the semaphore functionality,
@@ -52,7 +97,7 @@ public:
     db_connection_manager(const std::string& conn_str, int n) {
         for (int i = 0; i < n; ++i)
             queue_.emplace(
-                std::make_shared<pqxx::connection>(conn_str));
+                std::make_shared<raw_db_connection_type>(conn_str));
     }
     // if there are no available database connections, this function
     // blocks until there is any;
@@ -68,7 +113,7 @@ public:
         // `queue_lock_` is acquired so that only one thread will
         // modify the `queue_`
         std::lock_guard<std::mutex> lg{queue_lock_};
-        std::shared_ptr<pqxx::connection> conn = queue_.front();
+        std::shared_ptr<raw_db_connection_type> conn = queue_.front();
         queue_.pop();
         // if there are no connections in the `queue_`,
         // `counter_lock_` remains to be locked
@@ -93,7 +138,7 @@ inline db_connection::~db_connection() {
 class db_parameter {
 public:
     virtual ~db_parameter() = default;
-    virtual std::string get_value(pqxx::work&) = 0;
+    virtual std::string get_value(raw_db_transaction_type&) = 0;
 };
 
 class db_name : public db_parameter {
@@ -102,8 +147,8 @@ private:
 public:
     db_name(const std::string& value)
     : value_{value} {}
-    std::string get_value(pqxx::work& w) {
-        return w.quote_name(value_);
+    std::string get_value(raw_db_transaction_type& tx) {
+        return tx.quote_name(value_);
     }
 };
 
@@ -114,7 +159,7 @@ private:
 public:
     db_value(const Type& value)
     : value_{value} {}
-    std::string get_value(pqxx::work&) {
+    std::string get_value(raw_db_transaction_type&) {
         return std::to_string(value_);
     }
 };
@@ -126,8 +171,8 @@ private:
 public:
     db_value(const std::string& value)
     : value_{value} {}
-    std::string get_value(pqxx::work& w) {
-        return w.quote(value_);
+    std::string get_value(raw_db_transaction_type& tx) {
+        return tx.quote(value_);
     }
 };
 
@@ -138,7 +183,7 @@ private:
 public:
     db_value(const bool& value)
     : value_{value} {}
-    std::string get_value(pqxx::work&) {
+    std::string get_value(raw_db_transaction_type&) {
         return value_ ? "true" : "false";
     }
 };
@@ -169,8 +214,8 @@ inline std::shared_ptr<db_parameter> convert_parameter(
 
 template <typename ...Params>
 std::vector<std::string> convert_parameters(
-    pqxx::work& w, std::shared_ptr<Params>... params) {
-    return {params->get_value(w)...};
+    raw_db_transaction_type& tx, std::shared_ptr<Params>... params) {
+    return {params->get_value(tx)...};
 }
 
 // *************************************
@@ -183,7 +228,7 @@ public:
     : name_{name} {}
     virtual ~db_field_holder() = default;
     virtual void add(
-        const pqxx::row& row, size_t field_idx,
+        const db_row& row, std::size_t field_idx,
         boost::json::object& obj) = 0;
 };
 
@@ -192,7 +237,7 @@ class db_field : public db_field_holder {
 public:
     using db_field_holder::db_field_holder;
     void add(
-        const pqxx::row& row, size_t field_idx,
+        const db_row& row, std::size_t field_idx,
         boost::json::object& obj) {
         obj[name_] = row[field_idx].as<Type>();
     }
@@ -203,7 +248,7 @@ class db_field<std::string> : public db_field_holder {
 public:
     using db_field_holder::db_field_holder;
     void add(
-        const pqxx::row& row, size_t field_idx,
+        const db_row& row, std::size_t field_idx,
         boost::json::object& obj) {
         obj[name_] = row[field_idx].c_str();
     }
@@ -234,63 +279,80 @@ public:
         const std::initializer_list<
             std::shared_ptr<db_internal::db_field_holder>>& fields)
     : fields_{fields} {}
-    boost::json::object convert_row(const pqxx::row& row) {
+    boost::json::object convert_row(const db_row& row) {
         boost::json::object obj;
-        for (size_t i = 0; i < fields_.size(); ++i)
+        for (std::size_t i = 0; i < fields_.size(); ++i)
             fields_[i]->add(row, i, obj);
         return obj;
     }
     std::vector<boost::json::object> convert_to_vector(
-        const pqxx::result& result) {
+        const db_result& result) {
         std::vector<boost::json::object> results;
         for (const auto& row : result)
             results.emplace_back(convert_row(row));
         return results;
     }
     std::optional<boost::json::object> convert_to_optional(
-        const pqxx::result& result) {
-        if (result.size() == 0) return std::nullopt;
-        if (result.size() == 1) return convert_row(result[0]);
+        const db_result& result) {
+        // result.size() == 0
+        if (result.begin() == result.end()) return std::nullopt;
+        auto iterator = result.begin();
+        auto first = iterator;
+        // result.size() == 1
+        if (++iterator == result.end())
+            return convert_row(*first);
         // result.size() > 1
         throw invalid_operation_exception{
             "too many objects to convert"};
     }
 };
 
-// Usage:
-// db_exec(tx, "select * from ? where ? = ? and first_name = 'Name??'",
-//         db_name("auth_user"), db_name("is_active"), db_value<bool>(true));
-// -> SQL: select * from "auth_user" where "is_active" = true and first_name = 'Name?'
-// ======================================================================================
-// db_exec(tx, "select * from ? where ? = ? and first_name = ?",
-//         db_name("auth_user"), db_name("is_active"), false, "Name??");
-// -> SQL: select * from "auth_user" where "is_active" = false and first_name = 'Name??'
-// ======================================================================================
-// Note: "?" is the placeholder for parameters, and "??" will be converted to "?" in SQL.
-//       But, "??" in the parameters remains.
-template <typename ...Params>
-pqxx::result db_exec(pqxx::work& w,
-    const std::string& s, const Params&... params) {
-    std::vector<std::string> param_vec =
-        db_internal::convert_parameters(
-            w, db_internal::convert_parameter(params)...);
-    size_t idx = 0;
-    std::string query;
-    for (size_t i = 0; i < s.length(); ++i) {
-        if (s[i] == '?') {
-            if (i + 1 < s.length() && s[i + 1] == '?') {
-                query += s[++i];
-            } else {
-                if (idx < param_vec.size()) {
-                    query += param_vec[idx++];
-                } else throw std::out_of_range{"too few parameters"};
-            }
-        } else query += s[i];
+class db_transaction {
+private:
+    raw_db_transaction_type tx_;
+public:
+    db_transaction(
+        std::shared_ptr<db_connection> connection_ptr
+    ) : tx_{connection_ptr->get()} {}
+    // non-copiable, non-assignable
+    db_transaction(const db_transaction&) = delete;
+    db_transaction& operator=(const db_transaction&) = delete;
+    // Usage:
+    // exec("select * from ? where ? = ? and first_name = 'Name??'",
+    //      db_name("auth_user"), db_name("is_active"), db_value<bool>(true));
+    // -> SQL: select * from "auth_user" where "is_active" = true and first_name = 'Name?'
+    // ======================================================================================
+    // exec("select * from ? where ? = ? and first_name = ?",
+    //      db_name("auth_user"), db_name("is_active"), false, "Name??");
+    // -> SQL: select * from "auth_user" where "is_active" = false and first_name = 'Name??'
+    // ======================================================================================
+    // Note: "?" is the placeholder for parameters, and "??" will be converted to "?" in SQL.
+    //       But, "??" in the parameters remains.
+    template <typename ...Params>
+    db_result exec(const std::string& s, const Params&... params) {
+        std::vector<std::string> param_vec =
+            db_internal::convert_parameters(
+                tx_, db_internal::convert_parameter(params)...);
+        std::size_t idx = 0;
+        std::string query;
+        for (std::size_t i = 0; i < s.length(); ++i) {
+            if (s[i] == '?') {
+                if (i + 1 < s.length() && s[i + 1] == '?') {
+                    query += s[++i];
+                } else {
+                    if (idx < param_vec.size()) {
+                        query += param_vec[idx++];
+                    } else throw std::out_of_range{"too few parameters"};
+                }
+            } else query += s[i];
+        }
+        if (idx != param_vec.size())
+            throw invalid_operation_exception{"too many parameters"};
+        return tx_.exec(query);
     }
-    if (idx != param_vec.size())
-        throw invalid_operation_exception{"too many parameters"};
-    return w.exec(query);
-}
+    void commit() { tx_.commit(); }
+    void abort() { tx_.abort(); }
+};
 
 
 // TODO: add support for time conversions between postgresql and c++, use timestamp?

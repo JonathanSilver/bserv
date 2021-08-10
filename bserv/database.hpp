@@ -188,6 +188,23 @@ public:
     }
 };
 
+template <typename Type>
+class db_value<std::vector<Type>> : public db_parameter {
+private:
+    std::vector<Type> value_;
+public:
+    db_value(const std::vector<Type>& value)
+    : value_{value} {}
+    std::string get_value(raw_db_transaction_type& tx) {
+        std::string res;
+        for (const auto& elem : value_) {
+            if (res.size() != 0) res += ", ";
+            res += db_value<Type>{elem}.get_value(tx);
+        }
+        return "ARRAY[" + res + "]";
+    }
+};
+
 namespace db_internal {
 
 template <typename Param>

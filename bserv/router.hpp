@@ -33,6 +33,22 @@ struct server_resources {
     std::shared_ptr<db_connection_manager> db_conn_mgr;
 };
 
+struct request_resources {
+    server_resources& resources;
+
+    asio::io_context& ioc;
+    asio::yield_context& yield;
+    std::shared_ptr<websocket_session> ws_session;
+    const std::vector<std::string>& url_params;
+    request_type& request;
+    response_type& response;
+
+    std::shared_ptr<session_type> session_ptr;
+    std::shared_ptr<db_connection> db_connection_ptr;
+    std::shared_ptr<http_client> http_client_ptr;
+    std::shared_ptr<websocket_server> websocket_server_ptr;
+};
+
 namespace placeholders {
 
 template <int N>
@@ -126,33 +142,23 @@ struct get_parameter<0, Head, Tail...> {
 
 template <typename Type>
 Type&& get_parameter_data(
-    server_resources&,
-    asio::io_context&, asio::yield_context&,
-    std::shared_ptr<websocket_session>,
-    const std::vector<std::string>&,
-    request_type&, response_type&, Type&& val) {
+    request_resources&, Type&& val) {
     return static_cast<Type&&>(val);
 }
 
 template <int N, std::enable_if_t<(N >= 0), int> = 0>
 const std::string& get_parameter_data(
-    server_resources&,
-    asio::io_context&, asio::yield_context&,
-    std::shared_ptr<websocket_session>,
-    const std::vector<std::string>& url_params,
-    request_type&, response_type&,
+    request_resources& resources,
     placeholders::placeholder<N>) {
-    return url_params[N];
+    return resources.url_params[N];
 }
 
 inline std::shared_ptr<session_type> get_parameter_data(
-    server_resources& resources,
-    asio::io_context&, asio::yield_context&,
-    std::shared_ptr<websocket_session>,
-    const std::vector<std::string>&,
-    request_type& request, response_type& response,
+    request_resources& resources,
     placeholders::placeholder<-1>) {
-    std::string cookie_str{request[http::field::cookie]};
+    if (resources.session_ptr != nullptr)
+        return resources.session_ptr;
+    std::string cookie_str{resources.request[http::field::cookie]};
     auto&& [cookie_dict, cookie_list] 
         = utils::parse_params(cookie_str, 0, ';');
     boost::ignore_unused(cookie_list);
@@ -161,46 +167,35 @@ inline std::shared_ptr<session_type> get_parameter_data(
         session_id = cookie_dict[SESSION_NAME];
     }
     std::shared_ptr<session_type> session_ptr;
-    if (resources.session_mgr->get_or_create(session_id, session_ptr)) {
-        response.set(http::field::set_cookie, SESSION_NAME + "=" + session_id);
+    if (resources.resources.session_mgr->get_or_create(session_id, session_ptr)) {
+        resources.response.set(http::field::set_cookie, SESSION_NAME + "=" + session_id);
     }
+    resources.session_ptr = session_ptr;
     return session_ptr;
 }
 
 inline request_type& get_parameter_data(
-    server_resources&,
-    asio::io_context&, asio::yield_context&,
-    std::shared_ptr<websocket_session>,
-    const std::vector<std::string>&,
-    request_type& request, response_type&,
+    request_resources& resources,
     placeholders::placeholder<-2>) {
-    return request;
+    return resources.request;
 }
 
 inline response_type& get_parameter_data(
-    server_resources&,
-    asio::io_context&, asio::yield_context&,
-    std::shared_ptr<websocket_session>,
-    const std::vector<std::string>&,
-    request_type&, response_type& response,
+    request_resources& resources,
     placeholders::placeholder<-3>) {
-    return response;
+    return resources.response;
 }
 
 inline boost::json::object get_parameter_data(
-    server_resources&,
-    asio::io_context&, asio::yield_context&,
-    std::shared_ptr<websocket_session>,
-    const std::vector<std::string>&,
-    request_type& request, response_type&,
+    request_resources& resources,
     placeholders::placeholder<-4>) {
-    std::string target{request.target()};
+    std::string target{resources.request.target()};
     auto&& [url, dict_params, list_params] = utils::parse_url(target);
     boost::ignore_unused(url);
     boost::json::object body;
-    if (!request.body().empty()) {
+    if (!resources.request.body().empty()) {
         try {
-            body = boost::json::parse(request.body()).as_object();
+            body = boost::json::parse(resources.request.body()).as_object();
         } catch (const std::exception& e) {
             throw bad_request_exception{};
         }
@@ -223,33 +218,30 @@ inline boost::json::object get_parameter_data(
 }
 
 inline std::shared_ptr<db_connection> get_parameter_data(
-    server_resources& resources,
-    asio::io_context&, asio::yield_context&,
-    std::shared_ptr<websocket_session>,
-    const std::vector<std::string>&,
-    request_type&, response_type&,
+    request_resources& resources,
     placeholders::placeholder<-5>) {
-    return resources.db_conn_mgr->get_or_block();
+    if (resources.db_connection_ptr == nullptr)
+        resources.db_connection_ptr =
+            resources.resources.db_conn_mgr->get_or_block();
+    return resources.db_connection_ptr;
 }
 
 inline std::shared_ptr<http_client> get_parameter_data(
-    server_resources&,
-    asio::io_context& ioc, asio::yield_context& yield,
-    std::shared_ptr<websocket_session>,
-    const std::vector<std::string>&,
-    request_type&, response_type&,
+    request_resources& resources,
     placeholders::placeholder<-6>) {
-    return std::make_shared<http_client>(ioc, yield);
+    if (resources.http_client_ptr == nullptr)
+        resources.http_client_ptr =
+            std::make_shared<http_client>(resources.ioc, resources.yield);
+    return resources.http_client_ptr;
 }
 
 inline std::shared_ptr<websocket_server> get_parameter_data(
-    server_resources&,
-    asio::io_context&, asio::yield_context& yield,
-    std::shared_ptr<websocket_session> ws_session,
-    const std::vector<std::string>&,
-    request_type&, response_type&,
+    request_resources& resources,
     placeholders::placeholder<-7>) {
-    return std::make_shared<websocket_server>(*ws_session, yield);
+    if (resources.websocket_server_ptr == nullptr)
+        resources.websocket_server_ptr =
+            std::make_shared<websocket_server>(*resources.ws_session, resources.yield);
+    return resources.websocket_server_ptr;
 }
 
 template <int Idx, typename Func, typename Params, typename ...Args>
@@ -257,18 +249,14 @@ struct path_handler;
 
 template <int Idx, typename Ret, typename ...Args, typename ...Params>
 struct path_handler<Idx, Ret (*)(Args ...), parameter_pack<Params...>> {
-    Ret invoke(server_resources& resources,
-        asio::io_context& ioc, asio::yield_context& yield,
-        std::shared_ptr<websocket_session> ws_session,
-        Ret (*pf)(Args ...), parameter_pack<Params...>& params,
-        const std::vector<std::string>& url_params,
-        request_type& request, response_type& response) {
+    Ret invoke(request_resources& resources,
+        Ret (*pf)(Args ...), parameter_pack<Params...>& params) {
         if constexpr (Idx == 0) return (*pf)();
         else return static_cast<path_handler<
             Idx - 1, Ret (*)(Args ...), parameter_pack<Params...>,
             typename get_parameter<Idx - 1, Params...>::type>*
-            >(this)->invoke2(resources, ioc, yield, ws_session, pf, params, url_params, request, response,
-                get_parameter_data(resources, ioc, yield, ws_session, url_params, request, response,
+            >(this)->invoke2(resources, pf, params,
+                get_parameter_data(resources,
                     get_parameter_value<Idx - 1>(params)));
     }
 };
@@ -282,12 +270,8 @@ struct path_handler<Idx, Ret (*)(Args ...),
     template <
         typename Head2, typename ...Tail2,
         std::enable_if_t<sizeof...(Tail2) == sizeof...(Tail), int> = 0>
-    Ret invoke2(server_resources& resources,
-        asio::io_context& ioc, asio::yield_context& yield,
-        std::shared_ptr<websocket_session> ws_session,
-        Ret (*pf)(Args ...), parameter_pack<Params...>& params, 
-        const std::vector<std::string>& url_params,
-        request_type& request, response_type& response,
+    Ret invoke2(request_resources& resources,
+        Ret (*pf)(Args ...), parameter_pack<Params...>& params,
         Head2&& head2, Tail2&& ...tail2) {
         if constexpr (Idx == 0)
             return (*pf)(static_cast<Head2&&>(head2),
@@ -295,8 +279,8 @@ struct path_handler<Idx, Ret (*)(Args ...),
         else return static_cast<path_handler<
             Idx - 1, Ret (*)(Args ...), parameter_pack<Params...>,
             typename get_parameter<Idx - 1, Params...>::type, Head, Tail...>*
-            >(this)->invoke2(resources, ioc, yield, ws_session, pf, params, url_params, request, response,
-                get_parameter_data(resources, ioc, yield, ws_session, url_params, request, response,
+            >(this)->invoke2(resources, pf, params,
+                get_parameter_data(resources,
                     get_parameter_value<Idx - 1>(params)),
                 static_cast<Head2&&>(head2), static_cast<Tail2&&>(tail2)...);
     }
@@ -322,11 +306,7 @@ struct path_holder : std::enable_shared_from_this<path_holder> {
         const std::string&,
         std::vector<std::string>&) const = 0;
     virtual std::optional<boost::json::value> invoke(
-        server_resources&,
-        asio::io_context&, asio::yield_context&,
-        std::shared_ptr<websocket_session>,
-        const std::vector<std::string>&,
-        request_type&, response_type&) = 0;
+        request_resources&) = 0;
 };
 
 template <typename Func, typename Params>
@@ -355,15 +335,9 @@ public:
         return matched;
     }
     std::optional<boost::json::value> invoke(
-        server_resources& resources,
-        asio::io_context& ioc, asio::yield_context& yield,
-        std::shared_ptr<websocket_session> ws_session,
-        const std::vector<std::string>& url_params,
-        request_type& request, response_type& response) {
+        request_resources& resources) {
         return handler_.invoke(
-            resources, ioc, yield, ws_session,
-            pf_, params_, url_params,
-            request, response);
+            resources, pf_, params_);
     }
 };
 
@@ -412,8 +386,24 @@ public:
         const std::string& url, request_type& request, response_type& response) {
         std::vector<std::string> url_params;
         for (auto& ptr : paths_) {
-            if (ptr->match(url, url_params))
-                return ptr->invoke(*resources_, ioc, yield, ws_session, url_params, request, response);
+            if (ptr->match(url, url_params)) {
+                request_resources resources{
+                    *resources_,
+                    
+                    ioc,
+                    yield,
+                    ws_session,
+                    url_params,
+                    request,
+                    response,
+
+                    nullptr,
+                    nullptr,
+                    nullptr,
+                    nullptr
+                };
+                return ptr->invoke(resources);
+            }
         }
         throw url_not_found_exception{};
     }

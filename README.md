@@ -9,8 +9,8 @@
 - CMake
 - PostgreSQL
   > *The database may not be installed locally. You should be able to connect to it.*
-- Other Dependencies
-  > Refer to [readme](/dependencies/README.md) for setting up other dependencies.
+
+*Refer to [readme](dependencies/README.md) for setting up the dependencies.*
 
 
 ## Quick Start

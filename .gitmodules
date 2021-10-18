@@ -1,0 +1,12 @@
+[submodule "dependencies\\boost"]
+	path = dependencies\\boost
+	url = https://github.com/boostorg/boost
+[submodule "dependencies/cryptopp"]
+	path = dependencies/cryptopp
+	url = https://github.com/weidai11/cryptopp
+[submodule "dependencies/libpqxx"]
+	path = dependencies/libpqxx
+	url = https://github.com/jtv/libpqxx
+[submodule "dependencies/inja"]
+	path = dependencies/inja
+	url = https://github.com/pantor/inja

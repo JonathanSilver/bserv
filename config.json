@@ -1,0 +1,8 @@
+{
+	"port": 8080,
+	"thread-num": 2,
+	"conn-num": 4,
+	"conn-str": "postgresql://username:password@localhost:5432/bserv",
+	"static_root": "../../templates/statics",
+	"template_root": "../../templates"
+}

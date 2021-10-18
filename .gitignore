@@ -1,7 +1,8 @@
-test/
-build/*
-!build/README.md
-.*
+.vscode
+.vs
+x64
+log
+pgsql
 
 # Prerequisites
 *.d

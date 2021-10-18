@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="Mark Otto, Jacob Thornton, and Bootstrap contributors">
+    <meta name="generator" content="Hugo 0.88.1">
+    <title>WebApp - {% block title %}{% endblock %}</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="/statics/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+      .bd-placeholder-img {
+        font-size: 1.125rem;
+        text-anchor: middle;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        user-select: none;
+      }
+
+      @media (min-width: 768px) {
+        .bd-placeholder-img-lg {
+          font-size: 3.5rem;
+        }
+      }
+    </style>
+    
+  </head>
+  <body>
+    
+<main>
+
+  <nav class="navbar navbar-expand-md navbar-dark bg-dark mb-4">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/">WebApp</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarCollapse">
+        <ul class="navbar-nav me-auto mb-2 mb-md-0">
+          <li class="nav-item">
+            <a class="nav-link {% block home_active %}{% endblock %}" aria-current="page" href="/">Home</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% block users_active %}{% endblock %}" href="/users">Users</a>
+          </li>
+        </ul>
+        {% if exists("user") %}
+        <ul class="navbar-nav mb-2 mb-md-0">
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="dropdown07XL" data-bs-toggle="dropdown" aria-expanded="false">{{ user.username }}</a>
+            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end" aria-labelledby="dropdown07XL">
+              <li><a class="dropdown-item" href="/form_logout">Logout</a></li>
+            </ul>
+          </li>
+        </ul>
+        {% else %}
+        <form class="d-flex" method="post" action="/form_login">
+          <input class="form-control me-2" type="text" name="username" placeholder="Username" aria-label="Username">
+          <input class="form-control me-2" type="password" name="password" placeholder="Password" aria-label="Password">
+          <button class="btn btn-outline-success" type="submit">Login</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </nav>
+
+  {% if exists("message") %}
+    {% if exists("success") %}
+      {% if success %}
+      <div class="alert alert-success" role="alert">
+        {{ message }}
+      </div>
+      {% else %}
+      <div class="alert alert-danger" role="alert">
+        {{ message }}
+      </div>
+      {% endif %}
+    {% else %}
+    <div class="alert alert-primary" role="alert">
+      {{ message }}
+    </div>
+    {% endif %}
+  {% endif %}
+
+  <div class="container py-4">
+
+    {% block content %}{% endblock %}
+
+    <footer class="pt-3 mt-4 text-muted border-top">
+      &copy; 2021
+    </footer>
+  </div>
+</main>
+
+  <script src="/statics/js/bootstrap.bundle.min.js"></script>
+    
+  </body>
+</html>

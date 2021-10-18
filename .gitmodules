@@ -1,5 +1,5 @@
-[submodule "dependencies\\boost"]
-	path = dependencies\\boost
+[submodule "dependencies/boost"]
+	path = dependencies/boost
 	url = https://github.com/boostorg/boost
 [submodule "dependencies/cryptopp"]
 	path = dependencies/cryptopp

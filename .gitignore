@@ -1,9 +1,9 @@
 .vscode
 .vs
-x64
-log
 pgsql
-config.json
+x64
+/WebApp/WebApp/log
+/config.json
 
 # Prerequisites
 *.d

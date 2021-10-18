@@ -5,7 +5,6 @@
 
 CMD:
 ```
-git clone --single-branch --branch master --recursive https://github.com/boostorg/boost.git
 cd boost
 bootstrap
 b2
@@ -13,11 +12,6 @@ b2
 
 
 ## [Crypto++](https://cryptopp.com/)
-
-CMD:
-```
-git clone https://github.com/weidai11/cryptopp.git
-```
 
 1. Go to `cryptopp`.
 2. Use VS2019 to open `cryptest.sln`.
@@ -34,11 +28,6 @@ git clone https://github.com/weidai11/cryptopp.git
 
 # [Libpqxx](https://github.com/jtv/libpqxx)
 
-CMD:
-```
-git clone https://github.com/jtv/libpqxx.git
-```
-
 1. Go to `libpqxx`.
 2. Use `cmake-gui`:
    - `Browse Source...` and `Browse Build...` to the root directory of `libpqxx`.
@@ -52,7 +41,4 @@ git clone https://github.com/jtv/libpqxx.git
 
 # [inja](https://github.com/pantor/inja)
 
-CMD:
-```
-git clone https://github.com/pantor/inja.git
-```
+*Nothing should be done...*

@@ -3,6 +3,7 @@
 x64
 log
 pgsql
+config.json
 
 # Prerequisites
 *.d

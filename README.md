@@ -2,19 +2,18 @@
 
 *A Boost Based C++ HTTP JSON Server.*
 
+> NOTE:
+> - To build the dependencies & the project, refer to [`BUILD-Windows.md`](BUILD-Windows.md) or [`BUILD-ubuntu.md`](BUILD-ubuntu.md).
+> - `WebApp/bserv` contains the source code for `bserv`.
+
 
 ## Quick Start
 
-> To build the dependencies & the project, refer to [`BUILD-Windows.md`](BUILD-Windows.md) or [`BUILD-ubuntu.md`](BUILD-ubuntu.md).
-
-- `WebApp/bserv` contains the source code for `bserv`.
-
+> [`examples/CMakeLists.txt`](examples/CMakeLists.txt) can be used to compile all the examples.
 
 ### Hello, World!
 
-*This [example](examples/hello-world) shows how to use `bserv` to echo a json object `{"msg": "hello, world!"}` when requesting `localhost:8080/hello`.*
-
-`main.cpp`:
+[`hello.cpp`](examples/hello.cpp):
 ```C++
 #include <bserv/common.hpp>
 #include <boost/json.hpp>
@@ -32,19 +31,63 @@ int main()
 }
 ```
 
-`CMakeLists.txt`:
+By default, `bserv` listens to `8080`. When you make a request (of any type) to `localhost:8080/hello`, it will respond: `{"msg": "hello, world!"}`.
+
+
+### Routing
+
+[`routing.cpp`](examples/routing.cpp):
+```C++
+#include <bserv/common.hpp>
+#include <boost/json.hpp>
+#include <string>
+boost::json::object greet(
+	const std::string& name)
+{
+	return {{"hello", name}};
+}
+boost::json::object greet2(
+	const std::string& name1,
+	const std::string& name2)
+{
+	return {
+		{"name1", name1},
+		{"name2", name2}
+	};
+}
+boost::json::object echo(
+	boost::json::object&& params)
+{
+	return params;
+}
+int main()
+{
+	bserv::server_config config;
+	bserv::server{config, {
+		bserv::make_path(
+			"/greet/<str>", &greet,
+			bserv::placeholders::_1),
+		bserv::make_path(
+			"/greet/<str>/and/<str>", &greet2,
+			bserv::placeholders::_1,
+			bserv::placeholders::_2),
+		bserv::make_path(
+			"/echo", &echo,
+			bserv::placeholders::json_params)
+	}};
+}
 ```
-cmake_minimum_required(VERSION 3.10)
 
-project(hello)
+The following table shows some requests & responses:
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+|Method|URL|Request Body|Response Body|
+|:-:|:-:|:-:|:-:|
+|Any|`/greet/world`|(Empty)|`{"hello": "world"}`|
+|Any|`/greet/world1/and/world2`|(Empty)|`{"name1": "world1", "name2": "world2"}`|
+|GET|`/echo?hello=world`|(Empty)|`{"hello": "world"}`|
+|POST|`/echo`|`{"hello": "world"}`|`{"hello": "world"}`|
 
-add_subdirectory(path/to/WebApp/bserv bserv)
-add_executable(main main.cpp)
-target_link_libraries(main PUBLIC bserv)
-```
+*All of the URLs should be prefixed with `localhost:8080` when you make the requests.*
 
 
 ### Sample Project: `WebApp`

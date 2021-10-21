@@ -1,7 +1,9 @@
 #ifndef _LOGGING_HPP
 #define _LOGGING_HPP
 
-//#define BOOST_LOG_DYN_LINK
+#if defined(__GNUC__)
+#define BOOST_LOG_DYN_LINK
+#endif
 
 #include <boost/log/core.hpp>
 #include <boost/log/common.hpp>

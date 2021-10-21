@@ -280,7 +280,7 @@ std::nullopt_t index(
 	return render(response, template_path, context);
 }
 
-std::nullopt_t index(
+std::nullopt_t index_page(
 	std::shared_ptr<bserv::session_type> session_ptr,
 	bserv::response_type& response) {
 	boost::json::object context;

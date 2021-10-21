@@ -47,7 +47,7 @@ std::nullopt_t serve_static_files(
     bserv::response_type& response,
     const std::string& path);
 
-std::nullopt_t index(
+std::nullopt_t index_page(
     std::shared_ptr<bserv::session_type> session_ptr,
     bserv::response_type& response);
 

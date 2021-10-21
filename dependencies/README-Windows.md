@@ -1,6 +1,13 @@
 # Dependencies
 
 
+To build the dependencies & the project itself, The following must be installed:
+- Microsoft Visual Studio 2019 (VS2019)
+- CMake
+
+For each dependency, CMD is assumed to be in the directory of `dependencies`. So, the first command is always changing into the directory which contains the dependency.
+
+
 ## [Boost](https://www.boost.org/)
 
 CMD:
@@ -21,6 +28,8 @@ b2
 
 
 # [PostgreSQL 14.0](https://www.postgresql.org/)
+
+*The database may not be installed locally. You should be able to connect to it.*
 
 1. Use this [link](https://get.enterprisedb.com/postgresql/postgresql-14.0-1-windows-x64-binaries.zip) to download the binaries.
 2. Unzip the zip archive here. It should be named `pgsql` and contains `bin`, `include` and `lib`.

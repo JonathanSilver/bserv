@@ -96,7 +96,7 @@ int main(int argc, char* argv[]) {
 			bserv::placeholders::_1),
 
 		// serving html template files
-		bserv::make_path("/", &index,
+		bserv::make_path("/", &index_page,
 			bserv::placeholders::session,
 			bserv::placeholders::response),
 		bserv::make_path("/form_login", &form_login,

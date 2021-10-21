@@ -4,6 +4,7 @@ pgsql
 x64
 /WebApp/WebApp/log
 /config.json
+/build
 
 # Prerequisites
 *.d

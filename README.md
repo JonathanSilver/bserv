@@ -3,20 +3,14 @@
 *A Boost Based C++ HTTP JSON Server.*
 
 
-## Dependencies
-
-- VS2019
-- CMake
-- PostgreSQL
-  > *The database may not be installed locally. You should be able to connect to it.*
-
-*Refer to [readme](dependencies/README.md) for setting up the dependencies.*
-
-
 ## Quick Start
 
-Use VS2019 to open `WebApp/WebApp.sln`, which is a sample project. [`config-example.json`](config-example.json) is a sample config file for `WebApp`'s startup parameters. **It should be renamed to `config.json` before you `Run` the project.**
+> To build the dependencies & the project, refer to [`BUILD-Windows.md`](BUILD-Windows.md) or [`BUILD-ubuntu.md`](BUILD-ubuntu.md)
 
+- `WebApp/bserv` contains the source code for `bserv`.
+- `WebApp/WebApp` is a sample project.
+- [`config-Windows.json`](config-Windows.json) and [`config-ubuntu.json`](config-ubuntu.json) are two sample config file for `WebApp`'s startup parameters. **It should be configured and renamed to `config.json` before you start `WebApp`.**
+- To use `WebApp`, you should setup the database as well.
 
 ### Database
 

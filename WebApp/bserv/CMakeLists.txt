@@ -29,8 +29,8 @@ target_link_libraries(
 	boost_log
 	boost_log_setup
 	boost_json
-	pqxx
+	"${CMAKE_CURRENT_SOURCE_DIR}/../../dependencies/cryptopp/libcryptopp.a"
+	"${CMAKE_CURRENT_SOURCE_DIR}/../../dependencies/libpqxx/src/.libs/libpqxx.a"
 	pq
-	cryptopp
 )
 

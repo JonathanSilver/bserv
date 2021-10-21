@@ -9,11 +9,6 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-link_directories(
-	dependencies/cryptopp
-	dependencies/libpqxx/src/.libs
-)
-
 add_subdirectory(WebApp/bserv)
 add_subdirectory(WebApp/WebApp)
 

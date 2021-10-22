@@ -33,7 +33,7 @@ namespace bserv {
 	inline void init_logging(const server_config& config) {
 		if (config.get_log_path() != "") {
 			std::string filename = config.get_log_path();
-			if (!filename.ends_with('/')) {
+			if (filename[filename.size() - 1] != '/') {
 				filename += '/';
 			}
 			filename += config.get_name();

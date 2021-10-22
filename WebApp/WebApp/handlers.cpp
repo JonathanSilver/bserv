@@ -363,9 +363,9 @@ std::nullopt_t redirect_to_users(
 			pages_right.push_back(i);
 		}
 		pagination["pages_right"] = pages_right;
+		context["pagination"] = pagination;
 	}
 	context["users"] = json_users;
-	context["pagination"] = pagination;
 	return index("users.html", session_ptr, response, context);
 }
 

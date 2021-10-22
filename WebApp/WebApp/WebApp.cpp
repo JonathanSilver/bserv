@@ -46,6 +46,8 @@ int main(int argc, char* argv[]) {
 				config.set_num_db_conn((int)config_obj["conn-num"].as_int64());
 			if (config_obj.contains("conn-str"))
 				config.set_db_conn_str(config_obj["conn-str"].as_string().c_str());
+			if (config_obj.contains("log-dir"))
+				config.set_log_path(std::string{ config_obj["log-dir"].as_string() });
 			if (!config_obj.contains("template_root")) {
 				std::cerr << "`template_root` must be specified" << std::endl;
 				return EXIT_FAILURE;

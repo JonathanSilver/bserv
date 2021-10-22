@@ -19,10 +19,12 @@ namespace bserv {
 	const int EXPIRY_TIME = 30;  // seconds
 
 	const std::size_t LOG_ROTATION_SIZE = 8 * 1024 * 1024;
-	const std::string LOG_PATH = "./log/" + NAME;
+	//const std::string LOG_PATH = "./log/" + NAME;
+	const std::string LOG_PATH = "";
 
 	const int NUM_DB_CONN = 10;
-	const std::string DB_CONN_STR = "dbname=bserv";
+	//const std::string DB_CONN_STR = "dbname=bserv";
+	const std::string DB_CONN_STR = "";
 
 #define decl_field(type, name, default_value) \
 private: \

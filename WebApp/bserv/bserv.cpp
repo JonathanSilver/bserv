@@ -460,14 +460,16 @@ namespace bserv {
         ws_routes_{ std::move(ws_routes) } {
         init_logging(config);
 
-        // database connection
-        try {
-            db_conn_mgr_ = std::make_shared<
-                db_connection_manager>(config.get_db_conn_str(), config.get_num_db_conn());
-        }
-        catch (const std::exception& e) {
-            lgfatal << "db connection initialization failed: " << e.what() << std::endl;
-            exit(EXIT_FAILURE);
+        if (config.get_db_conn_str() != "") {
+            // database connection
+            try {
+                db_conn_mgr_ = std::make_shared<
+                    db_connection_manager>(config.get_db_conn_str(), config.get_num_db_conn());
+            }
+            catch (const std::exception& e) {
+                lgfatal << "db connection initialization failed: " << e.what() << std::endl;
+                exit(EXIT_FAILURE);
+            }
         }
         session_mgr_ = std::make_shared<memory_session_manager>();
 

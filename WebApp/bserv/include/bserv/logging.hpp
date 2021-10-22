@@ -31,15 +31,22 @@ namespace bserv {
 
 	// this function should be called before logging is used
 	inline void init_logging(const server_config& config) {
-		logging::add_file_log(
-			keywords::file_name = config.get_log_path() + "_%Y%m%d_%H-%M-%S.%N.log",
-			keywords::rotation_size = config.get_log_rotation_size(),
-			keywords::format = "[%Severity%][%TimeStamp%][%ThreadID%]: %Message%"
-		);
+		if (config.get_log_path() != "") {
+			std::string filename = config.get_log_path();
+			if (!filename.ends_with('/')) {
+				filename += '/';
+			}
+			filename += config.get_name();
+			logging::add_file_log(
+				keywords::file_name = filename + "_%Y%m%d_%H-%M-%S.%N.log",
+				keywords::rotation_size = config.get_log_rotation_size(),
+				keywords::format = "[%Severity%][%TimeStamp%][%ThreadID%]: %Message%"
+			);
 #if defined(_MSC_VER) && defined(_DEBUG)
-		// write to console as well
-		logging::add_console_log(std::cout);
+			// write to console as well
+			logging::add_console_log(std::cout);
 #endif
+		}
 		logging::core::get()->set_filter(
 #if defined(_MSC_VER) && defined(_DEBUG)
 			logging::trivial::severity >= logging::trivial::trace

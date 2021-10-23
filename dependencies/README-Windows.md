@@ -8,6 +8,9 @@ To build the dependencies & the project itself, The following must be installed:
 For each dependency, CMD is assumed to be in the directory of `dependencies`. So, the first command is always changing into the directory which contains the dependency.
 
 
+> **If you want to compile Libpqxx or install PostgreSQL locally, your OS username should NOT contain non-ASCII characters (e.g. Chinese characters). A workaround is to create a new administrator account whose username consists of only ASCII characters.**
+
+
 ## [Boost](https://www.boost.org/)
 
 CMD:

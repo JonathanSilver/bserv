@@ -266,6 +266,7 @@ namespace bserv {
 				Ret(*pf)(Args ...), parameter_pack<Params...>& params) {
 				// suppress msvc warning
 				boost::ignore_unused(params);
+				boost::ignore_unused(resources);
 				if constexpr (Idx == 0) return (*pf)();
 				else return static_cast<path_handler<
 					Idx - 1, Ret(*)(Args ...), parameter_pack<Params...>,

@@ -9,7 +9,7 @@
 
 ## Quick Start
 
-> [`examples/CMakeLists.txt`](examples/CMakeLists.txt) can be used to compile all the examples.
+> In Windows, you can simply open [`examples/Examples.sln`](examples/Examples.sln). In Ubuntu, [`examples/CMakeLists.txt`](examples/CMakeLists.txt) can be used to compile all the examples.
 
 ### Hello, World!
 

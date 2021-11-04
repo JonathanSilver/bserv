@@ -209,7 +209,23 @@ namespace bserv {
 					}
 			};
 			if (!resources.request.body().empty()) {
-				if (resources.request[http::field::content_type] == "application/json") {
+				auto& content_type = resources.request[http::field::content_type];
+				/*
+					for reference:
+					Content-Type: text/html; charset=UTF-8
+					Content-Type: multipart/form-data; boundary=something
+				*/
+				std::string media_type;
+				for (auto& c : content_type) {
+					if (c == ' ') {
+						continue;
+					}
+					else if (c == ';') {
+						break;
+					}
+					media_type += c;
+				}
+				if (media_type == "application/json") {
 					try {
 						body = boost::json::parse(resources.request.body()).as_object();
 					}
@@ -217,7 +233,7 @@ namespace bserv {
 						throw bad_request_exception{};
 					}
 				}
-				else if (resources.request[http::field::content_type] == "application/x-www-form-urlencoded") {
+				else if (media_type == "application/x-www-form-urlencoded") {
 					std::string copied_body{ resources.request.body() };
 					auto&& [dict_params, list_params] = utils::parse_params(copied_body);
 					add_to_body(dict_params, list_params);

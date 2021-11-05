@@ -69,8 +69,11 @@ mime_type(boost::beast::string_view path) {
 std::string read_bin(const std::string& file) {
 	std::ifstream fin(file, std::ios_base::in | std::ios_base::binary);
 	std::string res;
-	char c;
-	while ((c = (char)fin.get()) != EOF) res += c;
+	while (true) {
+		char c = (char)fin.get();
+		if (fin.eof()) break;
+		res += c;
+	}
 	return res;
 }
 

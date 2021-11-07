@@ -13,7 +13,7 @@
 
 ### Hello, World!
 
-[`hello.cpp`](examples/hello.cpp):
+[`examples/hello.cpp`](examples/hello.cpp):
 ```C++
 #include <bserv/common.hpp>
 #include <boost/json.hpp>
@@ -36,7 +36,7 @@ By default, `bserv` listens to `8080`. When you make a request (of any type) to 
 
 ### Routing
 
-[`routing.cpp`](examples/routing.cpp):
+[`examples/routing.cpp`](examples/routing.cpp):
 ```C++
 #include <bserv/common.hpp>
 #include <boost/json.hpp>

@@ -27,6 +27,7 @@ namespace bserv {
 		const char* c_str() const { return field_.c_str(); }
 		template <typename Type>
 		Type as() const { return field_.as<Type>(); }
+		bool is_null() const { return field_.is_null(); }
 	};
 
 	class db_row {
@@ -161,6 +162,20 @@ namespace bserv {
 	};
 
 	template <typename Type>
+	class db_value<std::optional<Type>> : public db_parameter {
+	private:
+		std::optional<Type> value_;
+	public:
+		db_value(const std::optional<Type>& value)
+			: value_{ value } {}
+		std::string get_value(raw_db_transaction_type& tx) {
+			return value_.has_value()
+				? db_value<Type>{value_.value()}.get_value(tx)
+				: "null";
+		}
+	};
+
+	template <typename Type>
 	class db_value<std::vector<Type>> : public db_parameter {
 	private:
 		std::vector<Type> value_;
@@ -240,6 +255,32 @@ namespace bserv {
 				const db_row& row, std::size_t field_idx,
 				boost::json::object& obj) {
 				obj[name_] = row[field_idx].c_str();
+			}
+		};
+
+		template <typename Type>
+		class db_field<std::optional<Type>> : public db_field_holder {
+		public:
+			using db_field_holder::db_field_holder;
+			void add(
+				const db_row& row, std::size_t field_idx,
+				boost::json::object& obj) {
+				if (!row[field_idx].is_null()) {
+					obj[name_] = row[field_idx].as<Type>();
+				}
+			}
+		};
+
+		template <>
+		class db_field<std::optional<std::string>> : public db_field_holder {
+		public:
+			using db_field_holder::db_field_holder;
+			void add(
+				const db_row& row, std::size_t field_idx,
+				boost::json::object& obj) {
+				if (!row[field_idx].is_null()) {
+					obj[name_] = row[field_idx].c_str();
+				}
 			}
 		};
 

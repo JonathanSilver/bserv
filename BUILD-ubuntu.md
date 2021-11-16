@@ -61,8 +61,8 @@ cmake --build .
 
 Assuming the shell is in `build`, you can run `WebApp` using:
 ```
-cd WebApp/WebApp
-./WebApp ../../../config.json
+cd WebApp
+./WebApp ../../config.json
 ```
 given that the database and `config.json` are properly configured.
 

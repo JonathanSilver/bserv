@@ -3,7 +3,7 @@
 	"thread-num": 2,
 	"conn-num": 4,
 	"conn-str": "postgresql://[username]:[password]@[url]:[port]/[db]",
-	"static_root": "../../../templates/statics",
-	"template_root": "../../../templates",
+	"static_root": "../../templates/statics",
+	"template_root": "../../templates",
 	"log-dir": "./log"
 }

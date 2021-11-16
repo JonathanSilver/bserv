@@ -12,8 +12,8 @@ add_library(
 target_include_directories(
 	bserv PUBLIC
 	
-	../../dependencies
-	../../dependencies/libpqxx/include
+	../dependencies
+	../dependencies/libpqxx/include
 	include
 )
 
@@ -29,8 +29,7 @@ target_link_libraries(
 	boost_log
 	boost_log_setup
 	boost_json
-	"${CMAKE_CURRENT_SOURCE_DIR}/../../dependencies/cryptopp/libcryptopp.a"
-	"${CMAKE_CURRENT_SOURCE_DIR}/../../dependencies/libpqxx/src/.libs/libpqxx.a"
+	"${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/cryptopp/libcryptopp.a"
+	"${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/libpqxx/src/.libs/libpqxx.a"
 	pq
 )
-

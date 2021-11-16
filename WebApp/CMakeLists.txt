@@ -9,8 +9,8 @@ add_executable(
 target_include_directories(
 	WebApp PUBLIC
 	
-	../../dependencies/inja/include
-	../../dependencies/inja/third_party/include
+	../dependencies/inja/include
+	../dependencies/inja/third_party/include
 )
 
 target_link_libraries(
@@ -18,4 +18,3 @@ target_link_libraries(
 	
 	bserv
 )
-

@@ -9,6 +9,5 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-add_subdirectory(WebApp/bserv)
-add_subdirectory(WebApp/WebApp)
-
+add_subdirectory(bserv)
+add_subdirectory(WebApp)

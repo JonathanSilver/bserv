@@ -26,6 +26,10 @@ namespace bserv {
 	//const std::string DB_CONN_STR = "dbname=bserv";
 	const std::string DB_CONN_STR = "";
 
+#ifdef _MSC_VER
+	const std::size_t STACK_SIZE = 1024 * 1024;
+#endif
+
 #define decl_field(type, name, default_value) \
 private: \
     std::optional<type> name##_; \

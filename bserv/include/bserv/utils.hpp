@@ -7,6 +7,9 @@
 #include <vector>
 #include <map>
 #include <random>
+#include <optional>
+
+#include "client.hpp"
 
 namespace bserv::utils {
 
@@ -56,6 +59,16 @@ namespace bserv::utils {
 		std::map<std::string, std::string>,
 		std::map<std::string, std::vector<std::string>>>
 		parse_url(std::string& s);
+
+	namespace file {
+
+		std::string read_bin(const std::string& filename);
+
+		std::nullopt_t serve(
+			response_type& response,
+			const std::string& filename);
+
+	}  // file
 
 }  // bserv::utils
 

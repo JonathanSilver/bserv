@@ -10,8 +10,6 @@ void init_rendering(const std::string& template_root);
 
 void init_static_root(const std::string& static_root);
 
-std::string read_bin(const std::string& file);
-
 std::nullopt_t render(
 	bserv::response_type& response,
 	const std::string& template_path,

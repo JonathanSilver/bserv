@@ -28,7 +28,7 @@ bserv::db_relation_to_object orm_user{
 
 std::optional<boost::json::object> get_user(
 	bserv::db_transaction& tx,
-	const std::string& username) {
+	const boost::json::string& username) {
 	bserv::db_result r = tx.exec(
 		"select * from auth_user where username = ?", username);
 	lginfo << r.query(); // this is how you log info
@@ -101,7 +101,7 @@ boost::json::object user_register(
 	}
 	auto username = params["username"].as_string();
 	bserv::db_transaction tx{ conn };
-	auto opt_user = get_user(tx, username.c_str());
+	auto opt_user = get_user(tx, username);
 	if (opt_user.has_value()) {
 		return {
 			{"success", false},
@@ -115,7 +115,7 @@ boost::json::object user_register(
 		"first_name, last_name, email, is_active) values "
 		"(?, ?, ?, ?, ?, ?, ?)", bserv::db_name("auth_user"),
 		bserv::db_name("username"),
-		username.c_str(),
+		username,
 		bserv::utils::security::encode_password(
 			password.c_str()), false,
 		get_or_empty(params, "first_name"),
@@ -151,7 +151,7 @@ boost::json::object user_login(
 	}
 	auto username = params["username"].as_string();
 	bserv::db_transaction tx{ conn };
-	auto opt_user = get_user(tx, username.c_str());
+	auto opt_user = get_user(tx, username);
 	if (!opt_user.has_value()) {
 		return {
 			{"success", false},
@@ -186,7 +186,7 @@ boost::json::object find_user(
 	std::shared_ptr<bserv::db_connection> conn,
 	const std::string& username) {
 	bserv::db_transaction tx{ conn };
-	auto user = get_user(tx, username);
+	auto user = get_user(tx, username.c_str());
 	if (!user.has_value()) {
 		return {
 			{"success", false},

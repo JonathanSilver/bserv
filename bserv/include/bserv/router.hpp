@@ -22,6 +22,7 @@
 #include "utils.hpp"
 #include "config.hpp"
 #include "websocket.hpp"
+#include "logging.hpp"
 
 namespace bserv {
 
@@ -421,6 +422,7 @@ namespace bserv {
 			std::vector<std::string> url_params;
 			for (auto& ptr : paths_) {
 				if (ptr->match(url, url_params)) {
+					lgtrace << "router: received request: " << url;
 					request_resources resources{
 						*resources_,
 

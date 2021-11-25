@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
 	}
 	if (argc == 2) {
 		try {
-			std::string config_content = read_bin(argv[1]);
+			std::string config_content = bserv::utils::file::read_bin(argv[1]);
 			//std::cout << config_content << std::endl;
 			boost::json::object config_obj = boost::json::parse(config_content).as_object();
 			if (config_obj.contains("port"))

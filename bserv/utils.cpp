@@ -4,6 +4,7 @@
 #include <mutex>
 #include <sstream>
 #include <iomanip>
+#include <fstream>
 
 #include <cryptopp/cryptlib.h>
 #include <cryptopp/pwdbased.h>
@@ -232,5 +233,63 @@ namespace bserv::utils {
 		auto&& [dict_params, list_params] = parse_params(s, i + 1);
 		return std::make_tuple(url, dict_params, list_params);
 	}
+
+	namespace file {
+
+		std::string read_bin(const std::string& filename) {
+			std::ifstream fin(filename, std::ios_base::in | std::ios_base::binary);
+			std::string res;
+			while (true) {
+				char c = (char)fin.get();
+				if (fin.eof()) break;
+				res += c;
+			}
+			return res;
+		}
+
+		// returns a reasonable mime type based on the extension of a file.
+		boost::beast::string_view
+			mime_type(boost::beast::string_view path) {
+			using boost::beast::iequals;
+			auto const ext = [&path] {
+				auto const pos = path.rfind(".");
+				if (pos == boost::beast::string_view::npos)
+					return boost::beast::string_view{};
+				return path.substr(pos);
+			}();
+			if (iequals(ext, ".htm"))  return "text/html";
+			if (iequals(ext, ".html")) return "text/html";
+			if (iequals(ext, ".php"))  return "text/html";
+			if (iequals(ext, ".css"))  return "text/css";
+			if (iequals(ext, ".txt"))  return "text/plain";
+			if (iequals(ext, ".js"))   return "application/javascript";
+			if (iequals(ext, ".json")) return "application/json";
+			if (iequals(ext, ".xml"))  return "application/xml";
+			if (iequals(ext, ".swf"))  return "application/x-shockwave-flash";
+			if (iequals(ext, ".flv"))  return "video/x-flv";
+			if (iequals(ext, ".png"))  return "image/png";
+			if (iequals(ext, ".jpe"))  return "image/jpeg";
+			if (iequals(ext, ".jpeg")) return "image/jpeg";
+			if (iequals(ext, ".jpg"))  return "image/jpeg";
+			if (iequals(ext, ".gif"))  return "image/gif";
+			if (iequals(ext, ".bmp"))  return "image/bmp";
+			if (iequals(ext, ".ico"))  return "image/vnd.microsoft.icon";
+			if (iequals(ext, ".tiff")) return "image/tiff";
+			if (iequals(ext, ".tif"))  return "image/tiff";
+			if (iequals(ext, ".svg"))  return "image/svg+xml";
+			if (iequals(ext, ".svgz")) return "image/svg+xml";
+			return "application/text";
+		}
+
+		std::nullopt_t serve(
+			response_type& response,
+			const std::string& filename) {
+			response.set(bserv::http::field::content_type, mime_type(filename));
+			response.body() = read_bin(filename);
+			response.prepare_payload();
+			return std::nullopt;
+		}
+
+	}  // file
 
 }  // bserv::utils

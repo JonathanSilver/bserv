@@ -150,6 +150,18 @@ namespace bserv {
 	};
 
 	template <>
+	class db_value<boost::json::string> : public db_parameter {
+	private:
+		std::string value_;
+	public:
+		db_value(const boost::json::string& value)
+			: value_{ value } {}
+		std::string get_value(raw_db_transaction_type& tx) {
+			return tx.quote(value_);
+		}
+	};
+
+	template <>
 	class db_value<bool> : public db_parameter {
 	private:
 		bool value_;

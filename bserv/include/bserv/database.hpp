@@ -173,6 +173,15 @@ namespace bserv {
 		}
 	};
 
+	template <>
+	class db_value<std::nullptr_t> : public db_parameter {
+	public:
+		db_value(const std::nullptr_t&) {}
+		std::string get_value(raw_db_transaction_type&) {
+			return "null";
+		}
+	};
+
 	template <typename Type>
 	class db_value<std::optional<Type>> : public db_parameter {
 	private:
@@ -201,6 +210,68 @@ namespace bserv {
 				res += db_value<Type>{elem}.get_value(tx);
 			}
 			return "ARRAY[" + res + "]";
+		}
+	};
+
+	class unsupported_json_value_type : public std::exception {
+	public:
+		unsupported_json_value_type() = default;
+		const char* what() const { return "unsupported json value type"; }
+	};
+
+	template <>
+	class db_value<boost::json::value> : public db_parameter {
+	private:
+		boost::json::value value_;
+		boost::json::value copy_json_value(
+			const boost::json::value& value) const {
+			if (value.is_bool()) {
+				return value.as_bool();
+			}
+			else if (value.is_double()) {
+				return value.as_double();
+			}
+			else if (value.is_int64()) {
+				return value.as_int64();
+			}
+			else if (value.is_null()) {
+				return nullptr;
+			}
+			else if (value.is_string()) {
+				return value.as_string();
+			}
+			else if (value.is_uint64()) {
+				return value.as_uint64();
+			}
+			else {
+				throw unsupported_json_value_type{};
+			}
+		}
+	public:
+		db_value(const boost::json::value& value)
+			: value_{ copy_json_value(value) } {}
+		std::string get_value(raw_db_transaction_type& tx) {
+			if (value_.is_bool()) {
+				return db_value<bool>{value_.as_bool()}.get_value(tx);
+			}
+			else if (value_.is_double()) {
+				return db_value<double>{value_.as_double()}.get_value(tx);
+			}
+			else if (value_.is_int64()) {
+				return db_value<std::int64_t>{value_.as_int64()}.get_value(tx);
+			}
+			else if (value_.is_null()) {
+				return db_value<std::nullptr_t>{nullptr}.get_value(tx);
+			}
+			else if (value_.is_string()) {
+				return db_value<boost::json::string>{value_.as_string()}.get_value(tx);
+			}
+			else if (value_.is_uint64()) {
+				return db_value<std::uint64_t>{value_.as_uint64()}.get_value(tx);
+			}
+			else {
+				throw unsupported_json_value_type{};
+			}
 		}
 	};
 
@@ -280,6 +351,9 @@ namespace bserv {
 				if (!row[field_idx].is_null()) {
 					obj[name_] = row[field_idx].as<Type>();
 				}
+				else {
+					obj[name_] = nullptr;
+				}
 			}
 		};
 
@@ -292,6 +366,9 @@ namespace bserv {
 				boost::json::object& obj) {
 				if (!row[field_idx].is_null()) {
 					obj[name_] = row[field_idx].c_str();
+				}
+				else {
+					obj[name_] = nullptr;
 				}
 			}
 		};

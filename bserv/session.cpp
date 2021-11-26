@@ -61,10 +61,9 @@ namespace bserv {
             int_to_str_.erase(another_key);
             queue_.erase(queue_.begin());
         }
-        bool found = true;
         std::size_t int_key;
         if (key.empty() || str_to_int_.count(key) == 0) {
-            found = false;
+            return false;
         }
         else {
             int_key = str_to_int_[key];
@@ -79,7 +78,7 @@ namespace bserv {
         // pushes expiry-key tuple (pair) to the queue
         queue_.emplace(expiry_[int_key], int_key);
         session_ptr = sessions_[int_key];
-        return found;
+        return true;
     }
 
 }  // bserv

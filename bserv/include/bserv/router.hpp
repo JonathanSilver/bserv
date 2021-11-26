@@ -179,7 +179,7 @@ namespace bserv {
 			}
 			if (session_ptr == nullptr
 				&& resources.resources.session_mgr->get_or_create(session_id, session_ptr)) {
-				resources.response.set(http::field::set_cookie, SESSION_NAME + "=" + session_id);
+				resources.response.set(http::field::set_cookie, SESSION_NAME + "=" + session_id + "; Path=/");
 			}
 			resources.session_ptr = session_ptr;
 			return session_ptr;

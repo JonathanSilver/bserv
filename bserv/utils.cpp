@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "bserv/utils.hpp"
+#include "bserv/router.hpp"
 
 #include <mutex>
 #include <sstream>
@@ -238,6 +239,7 @@ namespace bserv::utils {
 
 		std::string read_bin(const std::string& filename) {
 			std::ifstream fin(filename, std::ios_base::in | std::ios_base::binary);
+			if (!fin.is_open()) throw file_not_found{ filename };
 			std::string res;
 			while (true) {
 				char c = (char)fin.get();
@@ -285,7 +287,12 @@ namespace bserv::utils {
 			response_type& response,
 			const std::string& filename) {
 			response.set(bserv::http::field::content_type, mime_type(filename));
-			response.body() = read_bin(filename);
+			try {
+				response.body() = read_bin(filename);
+			}
+			catch (const file_not_found&) {
+				throw url_not_found_exception{};
+			}
 			response.prepare_payload();
 			return std::nullopt;
 		}

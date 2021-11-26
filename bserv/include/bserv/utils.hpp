@@ -62,6 +62,15 @@ namespace bserv::utils {
 
 	namespace file {
 
+		class file_not_found : public std::exception {
+		private:
+			std::string msg_;
+		public:
+			file_not_found(const std::string& filename)
+				: msg_{ std::string{ "'" } + filename + "' does not exist" } {}
+			const char* what() const { return msg_.c_str(); }
+		};
+
 		std::string read_bin(const std::string& filename);
 
 		std::nullopt_t serve(

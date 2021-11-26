@@ -37,6 +37,12 @@ namespace bserv {
 		virtual bool get_or_create(
 			std::string& key,
 			std::shared_ptr<session_type>& session_ptr) = 0;
+		// if `key` refers to an existing session, that session will be placed in
+		// `session_ptr` and this function will return `true`. otherwise, `false`.
+		// NOTE: a `shared_ptr` is returned instead of a reference.
+		virtual bool try_get(
+			const std::string& key,
+			std::shared_ptr<session_type>& session_ptr) = 0;
 	};
 
 	class memory_session_manager : public session_manager_base {
@@ -61,6 +67,9 @@ namespace bserv {
 			dist_{ 0, std::numeric_limits<std::size_t>::max() } {}
 		bool get_or_create(
 			std::string& key,
+			std::shared_ptr<session_type>& session_ptr);
+		bool try_get(
+			const std::string& key,
 			std::shared_ptr<session_type>& session_ptr);
 	};
 

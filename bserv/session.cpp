@@ -47,4 +47,39 @@ namespace bserv {
         return created;
     }
 
+    bool memory_session_manager::try_get(
+        const std::string& key,
+        std::shared_ptr<session_type>& session_ptr) {
+        std::lock_guard<std::mutex> lg{ lock_ };
+        time_point now = std::chrono::steady_clock::now();
+        // removes the expired sessions
+        while (!queue_.empty() && queue_.begin()->first < now) {
+            std::size_t another_key = queue_.begin()->second;
+            sessions_.erase(another_key);
+            expiry_.erase(another_key);
+            str_to_int_.erase(int_to_str_[another_key]);
+            int_to_str_.erase(another_key);
+            queue_.erase(queue_.begin());
+        }
+        bool found = true;
+        std::size_t int_key;
+        if (key.empty() || str_to_int_.count(key) == 0) {
+            found = false;
+        }
+        else {
+            int_key = str_to_int_[key];
+            queue_.erase(
+                queue_.lower_bound(
+                    std::make_pair(expiry_[int_key], int_key)));
+        }
+        // the expiry is set to be 20 minutes from now.
+        // if the session is re-visited within 20 minutes,
+        // the expiry will be extended.
+        expiry_[int_key] = now + std::chrono::minutes(20);
+        // pushes expiry-key tuple (pair) to the queue
+        queue_.emplace(expiry_[int_key], int_key);
+        session_ptr = sessions_[int_key];
+        return found;
+    }
+
 }  // bserv

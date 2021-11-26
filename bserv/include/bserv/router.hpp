@@ -164,11 +164,21 @@ namespace bserv {
 				= utils::parse_params(cookie_str, 0, ';');
 			boost::ignore_unused(cookie_list);
 			std::string session_id;
+			std::shared_ptr<session_type> session_ptr;
 			if (cookie_dict.count(SESSION_NAME) != 0) {
 				session_id = cookie_dict[SESSION_NAME];
 			}
-			std::shared_ptr<session_type> session_ptr;
-			if (resources.resources.session_mgr->get_or_create(session_id, session_ptr)) {
+			else if (cookie_list.count(SESSION_NAME) != 0) {
+				std::vector<std::string>& session_ids = cookie_list[SESSION_NAME];
+				for (auto& sess_id : session_ids) {
+					if (resources.resources.session_mgr->try_get(sess_id, session_ptr)) {
+						session_id = sess_id;
+						break;
+					}
+				}
+			}
+			if (session_ptr == nullptr
+				&& resources.resources.session_mgr->get_or_create(session_id, session_ptr)) {
 				resources.response.set(http::field::set_cookie, SESSION_NAME + "=" + session_id);
 			}
 			resources.session_ptr = session_ptr;

@@ -216,7 +216,7 @@ namespace bserv {
 	class unsupported_json_value_type : public std::exception {
 	public:
 		unsupported_json_value_type() = default;
-		const char* what() const { return "unsupported json value type"; }
+		const char* what() const noexcept { return "unsupported json value type"; }
 	};
 
 	template <>

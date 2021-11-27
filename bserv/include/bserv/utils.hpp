@@ -68,7 +68,7 @@ namespace bserv::utils {
 		public:
 			file_not_found(const std::string& filename)
 				: msg_{ std::string{ "'" } + filename + "' does not exist" } {}
-			const char* what() const { return msg_.c_str(); }
+			const char* what() const noexcept { return msg_.c_str(); }
 		};
 
 		std::string read_bin(const std::string& filename);

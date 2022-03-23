@@ -14,6 +14,11 @@
 
 #include <pqxx/pqxx>
 
+// [2022.3.23] fix issue:
+// because the project structure of pqxx has been updated,
+// including only pqxx is not enough
+#include <pqxx/result>
+
 namespace bserv {
 
 	using raw_db_connection_type = pqxx::connection;
